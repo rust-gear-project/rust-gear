@@ -11,6 +11,40 @@ importers:
       '@napi-rs/cli':
         specifier: ^2.18.4
         version: 2.18.4
+      '@swc/core':
+        specifier: ^1.11.29
+        version: 1.11.29
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.15.21
+      kpx:
+        specifier: ^0.2.0
+        version: 0.2.0
+    optionalDependencies:
+      rust-glob-darwin-arm64:
+        specifier: 0.1.0
+        version: 0.1.0
+      rust-glob-darwin-x64:
+        specifier: 0.1.0
+        version: 0.1.0
+      rust-glob-linux-arm64-gnu:
+        specifier: 0.1.0
+        version: 0.1.0
+      rust-glob-linux-arm64-musl:
+        specifier: 0.1.0
+        version: 0.1.0
+      rust-glob-linux-x64-gnu:
+        specifier: 0.1.0
+        version: 0.1.0
+      rust-glob-linux-x64-musl:
+        specifier: 0.1.0
+        version: 0.1.0
+      rust-glob-win32-arm64-msvc:
+        specifier: 0.1.0
+        version: 0.1.0
+      rust-glob-win32-ia32-msvc:
+        specifier: 0.1.0
+        version: 0.1.0
 
 packages:
 
@@ -19,6 +53,226 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
+  '@swc/core-darwin-arm64@1.11.29':
+    resolution: {integrity: sha512-whsCX7URzbuS5aET58c75Dloby3Gtj/ITk2vc4WW6pSDQKSPDuONsIcZ7B2ng8oz0K6ttbi4p3H/PNPQLJ4maQ==}
+    engines: {node: '>=10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@swc/core-darwin-x64@1.11.29':
+    resolution: {integrity: sha512-S3eTo/KYFk+76cWJRgX30hylN5XkSmjYtCBnM4jPLYn7L6zWYEPajsFLmruQEiTEDUg0gBEWLMNyUeghtswouw==}
+    engines: {node: '>=10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@swc/core-linux-arm-gnueabihf@1.11.29':
+    resolution: {integrity: sha512-o9gdshbzkUMG6azldHdmKklcfrcMx+a23d/2qHQHPDLUPAN+Trd+sDQUYArK5Fcm7TlpG4sczz95ghN0DMkM7g==}
+    engines: {node: '>=10'}
+    cpu: [arm]
+    os: [linux]
+
+  '@swc/core-linux-arm64-gnu@1.11.29':
+    resolution: {integrity: sha512-sLoaciOgUKQF1KX9T6hPGzvhOQaJn+3DHy4LOHeXhQqvBgr+7QcZ+hl4uixPKTzxk6hy6Hb0QOvQEdBAAR1gXw==}
+    engines: {node: '>=10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@swc/core-linux-arm64-musl@1.11.29':
+    resolution: {integrity: sha512-PwjB10BC0N+Ce7RU/L23eYch6lXFHz7r3NFavIcwDNa/AAqywfxyxh13OeRy+P0cg7NDpWEETWspXeI4Ek8otw==}
+    engines: {node: '>=10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@swc/core-linux-x64-gnu@1.11.29':
+    resolution: {integrity: sha512-i62vBVoPaVe9A3mc6gJG07n0/e7FVeAvdD9uzZTtGLiuIfVfIBta8EMquzvf+POLycSk79Z6lRhGPZPJPYiQaA==}
+    engines: {node: '>=10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@swc/core-linux-x64-musl@1.11.29':
+    resolution: {integrity: sha512-YER0XU1xqFdK0hKkfSVX1YIyCvMDI7K07GIpefPvcfyNGs38AXKhb2byySDjbVxkdl4dycaxxhRyhQ2gKSlsFQ==}
+    engines: {node: '>=10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@swc/core-win32-arm64-msvc@1.11.29':
+    resolution: {integrity: sha512-po+WHw+k9g6FAg5IJ+sMwtA/fIUL3zPQ4m/uJgONBATCVnDDkyW6dBA49uHNVtSEvjvhuD8DVWdFP847YTcITw==}
+    engines: {node: '>=10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@swc/core-win32-ia32-msvc@1.11.29':
+    resolution: {integrity: sha512-h+NjOrbqdRBYr5ItmStmQt6x3tnhqgwbj9YxdGPepbTDamFv7vFnhZR0YfB3jz3UKJ8H3uGJ65Zw1VsC+xpFkg==}
+    engines: {node: '>=10'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@swc/core-win32-x64-msvc@1.11.29':
+    resolution: {integrity: sha512-Q8cs2BDV9wqDvqobkXOYdC+pLUSEpX/KvI0Dgfun1F+LzuLotRFuDhrvkU9ETJA6OnD2+Fn/ieHgloiKA/Mn/g==}
+    engines: {node: '>=10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@swc/core@1.11.29':
+    resolution: {integrity: sha512-g4mThMIpWbNhV8G2rWp5a5/Igv8/2UFRJx2yImrLGMgrDDYZIopqZ/z0jZxDgqNA1QDx93rpwNF7jGsxVWcMlA==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      '@swc/helpers': '>=0.5.17'
+    peerDependenciesMeta:
+      '@swc/helpers':
+        optional: true
+
+  '@swc/counter@0.1.3':
+    resolution: {integrity: sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==}
+
+  '@swc/types@0.1.21':
+    resolution: {integrity: sha512-2YEtj5HJVbKivud9N4bpPBAyZhj4S2Ipe5LkUG94alTpr7in/GU/EARgPAd3BwU+YOmFVJC2+kjqhGRi3r0ZpQ==}
+
+  '@types/node@22.15.21':
+    resolution: {integrity: sha512-EV/37Td6c+MgKAbkcLG6vqZ2zEYHD7bvSrzqqs2RIhbA6w3x+Dqz8MZM3sP6kGTeLrdoOgKZe+Xja7tUB2DNkQ==}
+
+  kpx@0.2.0:
+    resolution: {integrity: sha512-aGCLlVbqS3cx0rJ0RiSx+paqY8BnklPhKq6m9SUZ0BjCgVgfRkX+r8Y0THpmiyD8eVVAXyexFhfNhdiCSwa47w==}
+
+  rust-glob-darwin-arm64@0.1.0:
+    resolution: {integrity: sha512-ewXmwjs34P3GXufNQi3nVdiRgt9SZ91VJf3s4rKapKK1KQehpt9R9J7yMA3IHIr7NEAatNJ8JGwFDhRPTYmLHw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  rust-glob-darwin-x64@0.1.0:
+    resolution: {integrity: sha512-O7W3TBmpVu6kRTOqblXC45cVMiTWUlrgdewEUskODJX8n6vEH+vzFCZZJBv5VvhcbzXT6IDnKT2JMU1FFuMEEw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  rust-glob-linux-arm64-gnu@0.1.0:
+    resolution: {integrity: sha512-B6KIGxFOHoe+REgUFv3Io89n4+F4yxh3ZyseYvOuTnM+AI3kUqfeH7bqLL0ByUrHwA4fr3cG3sR8wHPJttLlqw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  rust-glob-linux-arm64-musl@0.1.0:
+    resolution: {integrity: sha512-ifRtgRbn7xnOyF1ndDX6fTOUyaWK+aPKA8q8pU4rD/IMEonXhjo7Sh7TXbASIgmV4WimNpeUJmzZ8dUijEb/3Q==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  rust-glob-linux-x64-gnu@0.1.0:
+    resolution: {integrity: sha512-Bvm6q4LZkfnfQToyKwaPuRtwxUn7S7WDqMN4hB+LBmxfJczhgzPhlCSBm/k16DL4lLRMnlsOy1IAYGlm4Qv0mg==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  rust-glob-linux-x64-musl@0.1.0:
+    resolution: {integrity: sha512-1L5Gx+j5ynu4dapuO5amdEBx7TyeEUVILPZE4g7JB3Cj43epiJ9bIqrRiNMuTCm2OTA/3t7sR9S9Jl0L8N+T7A==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  rust-glob-win32-arm64-msvc@0.1.0:
+    resolution: {integrity: sha512-PpFlgQfNJM1GN6iaKDiZ6/5GjiRkVcXDWzSG/bfMQNSZR8EBiSAtujjkLvy3DuKjXJttRhcrGpn0702VylZufg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  rust-glob-win32-ia32-msvc@0.1.0:
+    resolution: {integrity: sha512-sYSJtIUcC+8+Z+MfhtIl3QbpFyiuIBVPZP4Q5+GIsFsE2UQn2yEnsAo28F5H2OYQEuj1QgWVOB9Mv+AEqJKsAA==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
 snapshots:
 
   '@napi-rs/cli@2.18.4': {}
+
+  '@swc/core-darwin-arm64@1.11.29':
+    optional: true
+
+  '@swc/core-darwin-x64@1.11.29':
+    optional: true
+
+  '@swc/core-linux-arm-gnueabihf@1.11.29':
+    optional: true
+
+  '@swc/core-linux-arm64-gnu@1.11.29':
+    optional: true
+
+  '@swc/core-linux-arm64-musl@1.11.29':
+    optional: true
+
+  '@swc/core-linux-x64-gnu@1.11.29':
+    optional: true
+
+  '@swc/core-linux-x64-musl@1.11.29':
+    optional: true
+
+  '@swc/core-win32-arm64-msvc@1.11.29':
+    optional: true
+
+  '@swc/core-win32-ia32-msvc@1.11.29':
+    optional: true
+
+  '@swc/core-win32-x64-msvc@1.11.29':
+    optional: true
+
+  '@swc/core@1.11.29':
+    dependencies:
+      '@swc/counter': 0.1.3
+      '@swc/types': 0.1.21
+    optionalDependencies:
+      '@swc/core-darwin-arm64': 1.11.29
+      '@swc/core-darwin-x64': 1.11.29
+      '@swc/core-linux-arm-gnueabihf': 1.11.29
+      '@swc/core-linux-arm64-gnu': 1.11.29
+      '@swc/core-linux-arm64-musl': 1.11.29
+      '@swc/core-linux-x64-gnu': 1.11.29
+      '@swc/core-linux-x64-musl': 1.11.29
+      '@swc/core-win32-arm64-msvc': 1.11.29
+      '@swc/core-win32-ia32-msvc': 1.11.29
+      '@swc/core-win32-x64-msvc': 1.11.29
+
+  '@swc/counter@0.1.3': {}
+
+  '@swc/types@0.1.21':
+    dependencies:
+      '@swc/counter': 0.1.3
+
+  '@types/node@22.15.21':
+    dependencies:
+      undici-types: 6.21.0
+
+  kpx@0.2.0:
+    dependencies:
+      '@swc/core': 1.11.29
+    transitivePeerDependencies:
+      - '@swc/helpers'
+
+  rust-glob-darwin-arm64@0.1.0:
+    optional: true
+
+  rust-glob-darwin-x64@0.1.0:
+    optional: true
+
+  rust-glob-linux-arm64-gnu@0.1.0:
+    optional: true
+
+  rust-glob-linux-arm64-musl@0.1.0:
+    optional: true
+
+  rust-glob-linux-x64-gnu@0.1.0:
+    optional: true
+
+  rust-glob-linux-x64-musl@0.1.0:
+    optional: true
+
+  rust-glob-win32-arm64-msvc@0.1.0:
+    optional: true
+
+  rust-glob-win32-ia32-msvc@0.1.0:
+    optional: true
+
+  undici-types@6.21.0: {}
