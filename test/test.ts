@@ -1,20 +1,20 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { globSync, glob } = require("../index.js");
+const { globSync, glob } = require("../index");
 
-test("async glob", async (t) => {
+test("async glob", async () => {
   const files = await glob("src/**/*.rs");
   console.log(files);
   assert(Array.isArray(files));
 });
 
-test("sync glob", (t) => {
+test("sync glob", () => {
   const files = globSync("src/**/*.rs");
   console.log(files);
   assert(Array.isArray(files));
 });
 
-test("glob with exclude", (t) => {
+test("glob with exclude", () => {
   const files = globSync("**/*.rs", {
     exclude: ["**/test/**", "**/target/**"],
   });
@@ -22,7 +22,7 @@ test("glob with exclude", (t) => {
   assert(Array.isArray(files));
 });
 
-test("glob with cwd", (t) => {
+test("glob with cwd", () => {
   const files = globSync("**/*.rs", {
     cwd: "test/test_exclude",
   });
