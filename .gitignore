@@ -3,6 +3,7 @@ node_modules
 Cargo.lock
 target
 index.js
+index.mjs
 index.d.ts
 npm
 rust-glob.darwin-arm64.node

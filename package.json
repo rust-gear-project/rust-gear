@@ -15,7 +15,15 @@
     "url": "git+https://github.com/refirst11/rust-glob.git"
   },
   "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "default": "./index.js"
+    }
+  },
   "main": "index.js",
+  "module": "index.mjs",
   "types": "index.d.ts",
   "napi": {
     "name": "rust-glob",
@@ -33,7 +41,7 @@
   },
   "scripts": {
     "build": "napi build --platform --release",
-    "test": "node test/test.js"
+    "test": "node -r kpx test/test.ts"
   },
   "engines": {
     "node": ">=10"
@@ -47,17 +55,20 @@
     "access": "public"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^2.18.4"
+    "@napi-rs/cli": "^2.18.4",
+    "@swc/core": "^1.11.29",
+    "@types/node": "^22.15.21",
+    "kpx": "^0.2.0"
   },
   "optionalDependencies": {
-    "rust-glob-darwin-x64": "0.1.0",
     "rust-glob-darwin-arm64": "0.1.0",
-    "rust-glob-linux-x64-gnu": "0.1.0",
+    "rust-glob-darwin-x64": "0.1.0",
     "rust-glob-linux-arm64-gnu": "0.1.0",
-    "rust-glob-linux-x64-musl": "0.1.0",
     "rust-glob-linux-arm64-musl": "0.1.0",
-    "rust-glob-win32-x64-msvc": "0.1.0",
+    "rust-glob-linux-x64-gnu": "0.1.0",
+    "rust-glob-linux-x64-musl": "0.1.0",
+    "rust-glob-win32-arm64-msvc": "0.1.0",
     "rust-glob-win32-ia32-msvc": "0.1.0",
-    "rust-glob-win32-arm64-msvc": "0.1.0"
+    "rust-glob-win32-x64-msvc": "0.1.0"
   }
 }
