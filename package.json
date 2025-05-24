@@ -1,0 +1,53 @@
+{
+  "name": "rust-glob",
+  "version": "0.1.0",
+  "description": "Node.js bindings for Rust glob library",
+  "keywords": [
+    "rust",
+    "glob",
+    "rust-glob",
+    "napi",
+    "napi-rs"
+  ],
+  "author": "Refirst",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/refirst11/rust-glob.git"
+  },
+  "license": "Apache-2.0",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "rust-glob",
+    "triples": [
+      "darwin-arm64",
+      "darwin-x64",
+      "linux-arm64-gnu",
+      "linux-arm64-musl",
+      "linux-x64-gnu",
+      "linux-x64-musl",
+      "win32-x64-msvc",
+      "win32-ia32-msvc",
+      "win32-arm64-msvc"
+    ]
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "prepublishOnly": "napi prepublish -t npm",
+    "test": "node test/test.js"
+  },
+  "engines": {
+    "node": ">=10"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.4"
+  }
+}
