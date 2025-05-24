@@ -69,9 +69,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
 
-      - uses: Swatinem/rust-cache@v2
-      - run: npm install -g pnpm
-      - run: pnpm install
+      - name: Setup pnpm
+        run: |
+          npm install -g pnpm
+          pnpm install
 
       - name: Build napi binary
         run: pnpm build --target ${{ matrix.target }}
