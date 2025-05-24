@@ -39,12 +39,11 @@ jobs:
         with:
           node-version: 20
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          target: ${{ matrix.target }}
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
 
       - name: Install Zig (user local)
         if: |
