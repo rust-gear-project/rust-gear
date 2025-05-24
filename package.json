@@ -33,7 +33,6 @@
   },
   "scripts": {
     "build": "napi build --platform --release",
-    "prepublishOnly": "napi prepublish -t npm",
     "test": "node test/test.js"
   },
   "engines": {
