@@ -2,5 +2,7 @@ node_modules
 .DS_Store
 Cargo.lock
 target
+index.js
+index.d.ts
 npm
 rust-glob.darwin-arm64.node
