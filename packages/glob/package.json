@@ -41,7 +41,7 @@
   },
   "scripts": {
     "build": "napi build --platform --release",
-    "prepublishOnly": "napi prepublish -t npm",
+    "prepublish": "napi prepublish -t npm",
     "test": "node -r kpx test/test.ts"
   },
   "engines": {

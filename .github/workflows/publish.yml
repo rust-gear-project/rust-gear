@@ -6,6 +6,9 @@ on:
       - "v*"
   workflow_dispatch:
 
+env:
+  PACKAGES: "glob"
+
 jobs:
   build:
     strategy:
@@ -74,36 +77,102 @@ jobs:
           npm install -g pnpm
           pnpm install
 
-      - name: Build napi binary
-        run: pnpm build --target ${{ matrix.target }}
-
-      - name: Upload napi binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: napi-binary-${{ matrix.target }}
-          path: glob.*.node
-          retention-days: 1
-
-      - name: Download napi binary
-        uses: actions/download-artifact@v4
-        with:
-          name: napi-binary-${{ matrix.target }}
-          path: artifacts
-
-      - name: Move .node binary to folder structure
+      - name: Build napi binaries for all packages
+        shell: bash
         run: |
-          find artifacts -name '*.node' | while read file; do
-            filename=$(basename "$file")
-            platform=$(echo "$filename" | sed -E 's/^[^.]+\.([^.]+)\.node$/\1/')
-            mkdir -p "glob/$platform"
-            mv "$file" "glob/$platform/glob.node"
+          IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
+          for package in "${PACKAGE_LIST[@]}"; do
+            echo "Building package: $package"
+            if [ -d "packages/$package" ]; then
+              cd "packages/$package"
+              pnpm build --target ${{ matrix.target }}
+              cd ../..
+            else
+              echo "Package directory packages/$package not found, skipping"
+            fi
           done
 
-      - name: Check glob folder contents
-        run: ls -R glob
+      - name: Upload napi binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: napi-binaries-${{ matrix.target }}
+          path: packages/*/*.node
+          retention-days: 1
 
-      - name: Run prepublish
-        run: pnpm prepublish
+  prepublish:
+    needs: build
+    runs-on: ubuntu-latest
 
-      - name: Check glob folder contents
-        run: ls -R glob
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: napi-binaries-*
+          path: artifacts/
+
+      - name: Debug List downloaded artifacts
+        run: find artifacts/ -name "*.node"
+
+      - name: Organize binaries by package
+        shell: bash
+        run: |
+          IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
+
+          for artifact_dir in artifacts/napi-binaries-*; do
+            if [ -d "$artifact_dir" ]; then
+              target=$(basename "$artifact_dir" | sed 's/napi-binaries-//')
+              echo "Processing target: $target"
+              
+              for package in "${PACKAGE_LIST[@]}"; do
+                node_files=$(find "$artifact_dir" -name "${package}.*.node")
+                for node_file in $node_files; do
+                  if [ -f "$node_file" ]; then
+                    filename=$(basename "$node_file")
+                    arch=$(echo "$filename" | sed -E "s/^${package}\.([^.]+)\.node$/\1/")
+                    
+                    mkdir -p "packages/${package}/npm/${arch}"
+                    cp "$node_file" "packages/${package}/npm/${arch}/${filename}"
+                    echo "Moved: $node_file -> packages/${package}/${arch}/${filename}"
+                  fi
+                done
+              done
+            fi
+          done
+
+      - name: Check final output
+        shell: bash
+        run: |
+          IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
+          for package in "${PACKAGE_LIST[@]}"; do
+            echo "=== Package: $package ==="
+            ls -R packages/$package/ || echo "No files found for $package"
+          done
+
+      - name: Setup pnpm
+        run: |
+          npm install -g pnpm
+          pnpm install
+
+      - name: Run prepublish for all packages
+        shell: bash
+        run: |
+          IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
+          for package in "${PACKAGE_LIST[@]}"; do
+            if [ -d "packages/$package" ]; then
+              echo "Running prepublish for $package"
+              cd "packages/$package"
+              pnpm prepublish || echo "prepublish failed for $package"
+              cd ../..
+            fi
+          done
+
+      - name: Check final output
+        shell: bash
+        run: |
+          IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
+          for package in "${PACKAGE_LIST[@]}"; do
+            echo "=== Package: $package ==="
+            ls -R packages/$package/ || echo "No files found for $package"
+          done
