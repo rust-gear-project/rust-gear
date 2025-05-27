@@ -1,74 +1,9 @@
 {
-  "name": "rust-glob",
-  "version": "0.1.0",
-  "description": "Node.js bindings for Rust glob library",
-  "keywords": [
-    "rust",
-    "glob",
-    "rust-glob",
-    "napi",
-    "napi-rs"
-  ],
-  "author": "Refirst",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/refirst11/rust-glob.git"
-  },
-  "license": "Apache-2.0",
-  "exports": {
-    ".": {
-      "types": "./index.d.ts",
-      "import": "./index.mjs",
-      "default": "./index.js"
-    }
-  },
-  "main": "index.js",
-  "module": "index.mjs",
-  "types": "index.d.ts",
-  "napi": {
-    "name": "rust-glob",
-    "triples": [
-      "darwin-arm64",
-      "darwin-x64",
-      "linux-arm64-gnu",
-      "linux-arm64-musl",
-      "linux-x64-gnu",
-      "linux-x64-musl",
-      "win32-x64-msvc",
-      "win32-ia32-msvc",
-      "win32-arm64-msvc"
-    ]
-  },
+  "name": "rust-gear-project",
+  "private": true,
   "scripts": {
-    "build": "napi build --platform --release",
-    "test": "node -r kpx test/test.ts"
-  },
-  "engines": {
-    "node": ">=10"
-  },
-  "files": [
-    "index.js",
-    "index.d.ts"
-  ],
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
-  },
-  "devDependencies": {
-    "@napi-rs/cli": "^2.18.4",
-    "@swc/core": "^1.11.29",
-    "@types/node": "^22.15.21",
-    "kpx": "^0.2.0"
-  },
-  "optionalDependencies": {
-    "rust-glob-darwin-arm64": "0.1.0",
-    "rust-glob-darwin-x64": "0.1.0",
-    "rust-glob-linux-arm64-gnu": "0.1.0",
-    "rust-glob-linux-arm64-musl": "0.1.0",
-    "rust-glob-linux-x64-gnu": "0.1.0",
-    "rust-glob-linux-x64-musl": "0.1.0",
-    "rust-glob-win32-arm64-msvc": "0.1.0",
-    "rust-glob-win32-ia32-msvc": "0.1.0",
-    "rust-glob-win32-x64-msvc": "0.1.0"
+    "build": "pnpm -r build",
+    "prepublish": "pnpm -r prepublish",
+    "test": "pnpm -r test"
   }
 }
