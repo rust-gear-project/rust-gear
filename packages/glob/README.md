@@ -25,6 +25,9 @@ console.log(filesAsync);
 You must pass an options object as the second argument to `globSync`/`glob`.  
 The `cwd` option is **required**.
 
+> **Note:**  
+> If you need to search an absolute path, set it as `cwd` and use a relative pattern.
+
 | Option  | Type     | Description                                            |
 | :------ | :------- | :----------------------------------------------------- |
 | cwd     | string   | **(Required)** Current working directory for searching |
