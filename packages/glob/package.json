@@ -8,15 +8,20 @@
     "napi",
     "napi-rs"
   ],
-  "author": "Refirst",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rust-gear-project/rust-gear.git"
   },
   "license": "Apache-2.0",
+  "author": "Refirst",
   "main": "index.js",
   "module": "index.mjs",
   "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts"
+  ],
   "napi": {
     "name": "glob",
     "triples": [
@@ -40,16 +45,22 @@
   "engines": {
     "node": ">=10"
   },
-  "files": [
-    "index.js",
-    "index.mjs",
-    "index.d.ts"
-  ],
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4"
+  },
+  "optionalDependencies": {
+    "@rust-gear/glob-darwin-arm64": "0.2.0",
+    "@rust-gear/glob-darwin-x64": "0.2.0",
+    "@rust-gear/glob-linux-arm64-gnu": "0.2.0",
+    "@rust-gear/glob-linux-arm64-musl": "0.2.0",
+    "@rust-gear/glob-linux-x64-gnu": "0.2.0",
+    "@rust-gear/glob-linux-x64-musl": "0.2.0",
+    "@rust-gear/glob-win32-arm64-msvc": "0.2.0",
+    "@rust-gear/glob-win32-ia32-msvc": "0.2.0",
+    "@rust-gear/glob-win32-x64-msvc": "0.2.0"
   }
 }
