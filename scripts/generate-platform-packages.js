@@ -38,24 +38,21 @@ platforms.forEach((platform) => {
     name: `${mainPackage.name}-${platform}`,
     version: mainPackage.version,
     description: mainPackage.description,
+    keywords: [...mainPackage.keywords],
+    repository: mainPackage.repository || {},
+    license: "Apache-2.0 AND MIT",
+    author: mainPackage.author,
     main: binaryName,
     files: [binaryName],
-    author: mainPackage.author,
-    license: "Apache-2.0 AND MIT",
-    repository: mainPackage.repository || {},
-    keywords: [...mainPackage.keywords],
     engines: { node: ">= 10" },
+    os: getOS(platform),
+    cpu: getCPU(platform),
+    ...(libc && { libc }),
     publishConfig: {
       registry: "https://registry.npmjs.org/",
       access: "public",
     },
-    os: getOS(platform),
-    cpu: getCPU(platform),
   };
-
-  if (libc) {
-    platformPackage.libc = libc;
-  }
 
   fs.writeFileSync(
     path.join(platformDir, "package.json"),
