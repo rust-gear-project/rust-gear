@@ -6,5 +6,9 @@
     "packages": "pnpm -r packages",
     "readme": "pnpm -r readme",
     "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.23",
+    "kpx": "^0.2.1"
   }
 }
