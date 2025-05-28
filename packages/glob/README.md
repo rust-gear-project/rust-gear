@@ -13,20 +13,20 @@ npm install --save-dev @rust-gear/glob
 ```js
 import { globSync, glob } from "@rust-gear/glob";
 
-const files = globSync("src/**/*.rs", { cwd: process.cwd() });
+const files = globSync("src/**/*.rs");
 console.log(files);
 
-const filesAsync = await glob("src/**/*.rs", { cwd: process.cwd() });
+const filesAsync = await glob("src/**/*.rs");
 console.log(filesAsync);
 ```
 
 ## Options
 
-You must pass an options object as the second argument to `globSync`/`glob`.  
-The `cwd` option is **required**.
+You can pass an options object as the second argument to `globSync/glob`.
 
-> **Note:**  
-> If you need to search an absolute path, set it as `cwd` and use a relative pattern.
+> **Return path type:**  
+> If the pattern is absolute, absolute paths are returned.  
+> If the pattern is relative, paths are returned relative to the specified `cwd`.
 
 | Option  | Type     | Description                                            |
 | :------ | :------- | :----------------------------------------------------- |
@@ -36,18 +36,28 @@ The `cwd` option is **required**.
 ### Example
 
 ```js
+// Relative pattern, returns paths relative to cwd
 const files = globSync("**/*.rs", {
   cwd: "src",
   exclude: ["**/test/**", "**/target/**"],
 });
+
+// Convert all relative paths to absolute paths
+const absFiles = globSync("**/*.rs", {
+  cwd: "src",
+  exclude: ["**/test/**", "**/target/**"],
+}).map((f) => path.resolve(cwd(), f));
+
+// Absolute pattern, returns absolute paths
+const absoluteFiles = globSync("/Users/foo/project/src/**/*.rs");
 ```
 
 ## API
 
-**globSync(pattern: string \| string[], options: GlobOptions): string[]**  
+**globSync(pattern: string \| string[], options?: GlobOptions): string[]**  
 Synchronously returns an array of file paths.
 
-**glob(pattern: string \| string[], options: GlobOptions): Promise<string[]>**  
+**glob(pattern: string \| string[], options?: GlobOptions): Promise<string[]>**  
 Asynchronously returns an array of file paths.
 
 ## License
