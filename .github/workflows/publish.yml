@@ -98,6 +98,7 @@ jobs:
           name: napi-binaries-${{ matrix.target }}
           path: packages/*/*.node
           retention-days: 1
+          attest: true  # Enable provenance
 
   prepublish:
     needs: build
