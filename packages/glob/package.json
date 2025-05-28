@@ -41,8 +41,8 @@
   },
   "scripts": {
     "build": "napi build --platform --release",
-    "prepublish": "napi prepublish -t npm",
     "packages": "node ../../scripts/generate-platform-packages.js",
+    "readme": "node ../../scripts/generate-platform-readme.js",
     "test": "node -r kpx test/test.ts"
   },
   "engines": {

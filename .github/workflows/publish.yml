@@ -155,16 +155,15 @@ jobs:
           npm install -g pnpm
           pnpm install
 
-      - name: Run prepublish and generate platform packages
+      - name: Generate platform-specific package.json and README.md
         shell: bash
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
             if [ -d "packages/$package" ]; then
-              echo "Running prepublish for $package"
               cd "packages/$package"
-              pnpm prepublish || echo "prepublish failed for $package"
-              pnpm packages || echo "packages script failed for $package"
+              pnpm packages
+              pnpm readme
               cd ../..
             fi
           done

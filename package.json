@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "build": "pnpm -r build",
-    "prepublish": "pnpm -r prepublish",
     "packages": "pnpm -r packages",
+    "readme": "pnpm -r readme",
     "test": "pnpm -r test"
   }
 }
