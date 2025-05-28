@@ -4,6 +4,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "prepublish": "pnpm -r prepublish",
+    "packages": "pnpm -r packages",
     "test": "pnpm -r test"
   }
 }

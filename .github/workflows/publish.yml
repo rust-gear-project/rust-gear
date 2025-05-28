@@ -155,7 +155,7 @@ jobs:
           npm install -g pnpm
           pnpm install
 
-      - name: Run prepublish for all packages
+      - name: Run prepublish and generate platform packages
         shell: bash
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
@@ -164,9 +164,12 @@ jobs:
               echo "Running prepublish for $package"
               cd "packages/$package"
               pnpm prepublish || echo "prepublish failed for $package"
+              pnpm packages || echo "packages script failed for $package"
               cd ../..
             fi
           done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check final output
         shell: bash
@@ -176,3 +179,12 @@ jobs:
             echo "=== Package: $package ==="
             ls -R packages/$package/ || echo "No files found for $package"
           done
+
+      - name: Upload npm directories as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-packages
+          path: |
+            packages/*/npm/
+            packages/*/npm/**/*
+          retention-days: 1
