@@ -8,7 +8,22 @@ use ignore::WalkBuilder;
 #[derive(Clone)]
 pub struct GlobOptions {
     pub exclude: Option<Vec<String>>,
-    pub cwd: Option<String>,
+    pub cwd: String,
+}
+
+
+
+fn resolve_cwd(cwd: &str) -> Result<PathBuf> {
+    let path = PathBuf::from(cwd);
+    
+    if path.is_absolute() {
+        return Ok(path);
+    }
+    
+    let current_dir = std::env::current_dir()
+        .map_err(|e| Error::new(Status::GenericFailure, format!("Failed to get current directory: {}", e)))?;
+    
+    Ok(current_dir.join(path))
 }
 
 fn build_globset(patterns: &[String]) -> Result<GlobSet> {
@@ -31,6 +46,7 @@ fn walk_and_filter(cwd: &Path, include: &GlobSet, exclude: &GlobSet) -> Result<V
 
     walker.run(|| {
         let results = &results;
+        let cwd = cwd.to_path_buf();
         Box::new(move |result| {
             let entry = match result {
                 Ok(e) => e,
@@ -38,17 +54,18 @@ fn walk_and_filter(cwd: &Path, include: &GlobSet, exclude: &GlobSet) -> Result<V
             };
 
             let path = entry.path();
-            let relative_path = path.strip_prefix(cwd).unwrap_or(path);
+            let relative_path = path.strip_prefix(&cwd).unwrap_or(path);
             
-            if exclude.is_match(relative_path) {
+            let is_included = include.is_match(relative_path) || include.is_match(path);
+            let is_excluded = exclude.is_match(relative_path) || exclude.is_match(path);
+            
+            if !is_included || is_excluded {
                 return ignore::WalkState::Continue;
             }
             
-            if include.is_match(relative_path) {
-                if let Some(s) = relative_path.to_str() {
-                    let mut r = results.lock().unwrap();
-                    r.push(s.to_string());
-                }
+            if let Some(s) = path.to_str() {
+                let mut r = results.lock().unwrap();
+                r.push(s.to_string());
             }
             ignore::WalkState::Continue
         })
@@ -60,21 +77,15 @@ fn walk_and_filter(cwd: &Path, include: &GlobSet, exclude: &GlobSet) -> Result<V
 #[napi]
 pub fn glob_sync(
     patterns: Either<String, Vec<String>>,
-    options: Option<GlobOptions>,
+    options: GlobOptions,
 ) -> Result<Vec<String>> {
     let pattern_list = match patterns {
         Either::A(s) => vec![s],
         Either::B(v) => v,
     };
 
-    let cwd = match options.as_ref().and_then(|o| o.cwd.as_ref()) {
-        Some(cwd) => PathBuf::from(cwd),
-        None => std::env::current_dir().map_err(|e| {
-            Error::new(Status::GenericFailure, format!("Failed to get current directory: {}", e))
-        })?,
-    };
-
-    let exclude_list = options.and_then(|o| o.exclude).unwrap_or_default();
+    let cwd = resolve_cwd(&options.cwd)?;
+    let exclude_list = options.exclude.unwrap_or_default();
 
     let include_globset = build_globset(&pattern_list)?;
     let exclude_globset = build_globset(&exclude_list)?;
@@ -85,21 +96,15 @@ pub fn glob_sync(
 #[napi]
 pub async fn glob(
     patterns: Either<String, Vec<String>>,
-    options: Option<GlobOptions>,
+    options: GlobOptions,
 ) -> Result<Vec<String>> {
     let pattern_list = match patterns {
         Either::A(s) => vec![s],
         Either::B(v) => v,
     };
 
-    let cwd = match options.as_ref().and_then(|o| o.cwd.as_ref()) {
-        Some(cwd) => PathBuf::from(cwd),
-        None => std::env::current_dir().map_err(|e| {
-            Error::new(Status::GenericFailure, format!("Failed to get current directory: {}", e))
-        })?,
-    };
-
-    let exclude_list = options.and_then(|o| o.exclude).unwrap_or_default();
+    let cwd = resolve_cwd(&options.cwd)?;
+    let exclude_list = options.exclude.unwrap_or_default();
 
     let include_globset = build_globset(&pattern_list)?;
     let exclude_globset = build_globset(&exclude_list)?;
