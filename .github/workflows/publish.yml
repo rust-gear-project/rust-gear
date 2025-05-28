@@ -3,7 +3,7 @@ name: "Publish"
 on:
   push:
     tags:
-      - "v*"
+      - "*-v*"
   workflow_dispatch:
 
 env:
@@ -98,11 +98,14 @@ jobs:
           name: napi-binaries-${{ matrix.target }}
           path: packages/*/*.node
           retention-days: 1
-          attest: true  # Enable provenance
 
   prepublish:
     needs: build
     runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -169,10 +172,15 @@ jobs:
             fi
           done
 
+      - name: Make permission publish.sh
+        run: chmod +x ./scripts/publish.sh
+
       - name: Publish packages
         shell: bash
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-        run: ../../scripts/publish.sh
+        run: |
+          echo "@rust-gear:registry=https://registry.npmjs.org/" > .npmrc
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
+          ./scripts/publish.sh "$PACKAGES"
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
