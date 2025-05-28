@@ -20,6 +20,34 @@ importers:
       '@napi-rs/cli':
         specifier: ^2.18.4
         version: 2.18.4
+    optionalDependencies:
+      '@rust-gear/glob-darwin-arm64':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@rust-gear/glob-darwin-x64':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@rust-gear/glob-linux-arm64-gnu':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@rust-gear/glob-linux-arm64-musl':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@rust-gear/glob-linux-x64-gnu':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@rust-gear/glob-linux-x64-musl':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@rust-gear/glob-win32-arm64-msvc':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@rust-gear/glob-win32-ia32-msvc':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@rust-gear/glob-win32-x64-msvc':
+        specifier: 0.2.0
+        version: 0.2.0
 
 packages:
 
@@ -27,6 +55,60 @@ packages:
     resolution: {integrity: sha512-SgJeA4df9DE2iAEpr3M2H0OKl/yjtg1BnRI5/JyowS71tUWhrfSu2LT0V3vlHET+g1hBVlrO60PmEXwUEKp8Mg==}
     engines: {node: '>= 10'}
     hasBin: true
+
+  '@rust-gear/glob-darwin-arm64@0.2.0':
+    resolution: {integrity: sha512-EzoTQkP1kUzmG+4w30uTNntqvInLs9awXdi6QUkwT2gjbteJQUJmbn0DKaUhEwKy8NCFWYmO/O3JAeIS3WuAcQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@rust-gear/glob-darwin-x64@0.2.0':
+    resolution: {integrity: sha512-/66hj3R7IARrA+RMBSYbhxDZhSxjXfrrrAiRQLjaQNIfF2BOwj7WvAWgeGje0G7C8V1sHf0QwFJKhzGkraJkdA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@rust-gear/glob-linux-arm64-gnu@0.2.0':
+    resolution: {integrity: sha512-cTXnFtouzIY7vZvQQ6FCFsHjLCtgqwKepSL7nU2kE0tPpG/UcgPoY/vW0jPkcR+mVXW/qdsqcXuMdjybjvu/Ww==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@rust-gear/glob-linux-arm64-musl@0.2.0':
+    resolution: {integrity: sha512-r5XG0LeU09ocx9YWyswfc/ccIKM3H/zzBpMWndGs5QvYPV2YICmFYyIVzE29fuxq54dpBMz/Wx25x2K6C/kIKQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@rust-gear/glob-linux-x64-gnu@0.2.0':
+    resolution: {integrity: sha512-Dr3QcN8JVIrcO+dXsvrfNKcRwiQMfBiv8407fqP0/zFYHzAXxW08C2zdhQIhcwepDRNVC95Z5zJv9z15KasnDQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@rust-gear/glob-linux-x64-musl@0.2.0':
+    resolution: {integrity: sha512-22Y3eCxIzyVVtTMzqcleCGDGBJjbY8FhNFSCOSnA4l0iCQK7T4xdILT7uQfnX1Ghj/1+APuSrHKbFTLUulSz9Q==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@rust-gear/glob-win32-arm64-msvc@0.2.0':
+    resolution: {integrity: sha512-v1B5tL19pjtyNSDVkWW0AO0HXMY6+loiILLm1iZqjdZeDA3coUyfZ3JW7RdMvlPHKiiY1dchDBhw/lZ6DZE5Yw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@rust-gear/glob-win32-ia32-msvc@0.2.0':
+    resolution: {integrity: sha512-eFNacNOp+j5p9tJzfHzqlbO0RbMiZJMw0m9hdxbgu1b378+ngHbrF9FKQ03mzFklZLMiYwrB7EnMTGD20Pv11g==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@rust-gear/glob-win32-x64-msvc@0.2.0':
+    resolution: {integrity: sha512-Kqc+sV/Qr3tI56r+NZMilkht5yn36gdH1PgzmlzFz9GvV/B4Kqg5ya/zDRwumlG54OeDZ6ezCGDCEVqABS0rDA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
 
   '@swc/core-darwin-arm64@1.11.29':
     resolution: {integrity: sha512-whsCX7URzbuS5aET58c75Dloby3Gtj/ITk2vc4WW6pSDQKSPDuONsIcZ7B2ng8oz0K6ttbi4p3H/PNPQLJ4maQ==}
@@ -115,6 +197,33 @@ packages:
 snapshots:
 
   '@napi-rs/cli@2.18.4': {}
+
+  '@rust-gear/glob-darwin-arm64@0.2.0':
+    optional: true
+
+  '@rust-gear/glob-darwin-x64@0.2.0':
+    optional: true
+
+  '@rust-gear/glob-linux-arm64-gnu@0.2.0':
+    optional: true
+
+  '@rust-gear/glob-linux-arm64-musl@0.2.0':
+    optional: true
+
+  '@rust-gear/glob-linux-x64-gnu@0.2.0':
+    optional: true
+
+  '@rust-gear/glob-linux-x64-musl@0.2.0':
+    optional: true
+
+  '@rust-gear/glob-win32-arm64-msvc@0.2.0':
+    optional: true
+
+  '@rust-gear/glob-win32-ia32-msvc@0.2.0':
+    optional: true
+
+  '@rust-gear/glob-win32-x64-msvc@0.2.0':
+    optional: true
 
   '@swc/core-darwin-arm64@1.11.29':
     optional: true
