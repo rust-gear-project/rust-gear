@@ -1,4 +1,4 @@
-# rust-glob
+# @rust-gear/glob
 
 A high-performance globbing library for Node.js, powered by native Rust code.
 
@@ -28,10 +28,10 @@ You can pass an options object as the second argument to `globSync/glob`.
 > If the pattern is absolute, absolute paths are returned.  
 > If the pattern is relative, paths are returned relative to the specified `cwd`.
 
-| Option  | Type     | Description                                            |
-| :------ | :------- | :----------------------------------------------------- |
-| cwd     | string   | **(Required)** Current working directory for searching |
-| exclude | string[] | Array of glob patterns to exclude                      |
+| Option  | Type     | Description                             |
+| :------ | :------- | :-------------------------------------- |
+| cwd     | string   | Current working directory for searching |
+| exclude | string[] | Array of glob patterns to exclude       |
 
 ### Example
 
