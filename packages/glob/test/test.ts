@@ -1,32 +1,46 @@
-const path = require("path");
-const test = require("node:test");
-const assert = require("node:assert");
-const { globSync, glob } = require("../index");
+import test from "ava";
+import path from "path";
+import { globSync, glob } from "../index.mjs";
 
-test("async glob", async () => {
-  const files = await glob(path.join(process.cwd()), "src/**/*.rs");
-  console.log(files);
-  assert(Array.isArray(files));
+test("async glob", async (t) => {
+  const files = await glob(path.join(process.cwd(), "src/**/*.rs"));
+  t.true(Array.isArray(files));
 });
 
-test("sync glob", () => {
+test("sync glob", (t) => {
   const files = globSync("src/**/*.rs");
-  console.log(files);
-  assert(Array.isArray(files));
+  t.true(Array.isArray(files));
 });
 
-test("glob with exclude", () => {
+test("glob with exclude", (t) => {
   const files = globSync("**/*.rs", {
     exclude: ["**/test/**", "**/target/**"],
   });
-  console.log(files);
-  assert(Array.isArray(files));
+  t.true(Array.isArray(files));
 });
 
-test("glob with cwd", () => {
+test("glob with cwd", (t) => {
   const files = globSync("**/*.rs", {
     cwd: "test/test_exclude",
   });
-  console.log(files);
-  assert(Array.isArray(files));
+  t.true(Array.isArray(files));
+});
+
+// オプション: 空のパターンを渡した場合のテスト
+test("glob with empty pattern returns empty array", async (t) => {
+  const files = await glob("");
+  t.deepEqual(
+    files,
+    [],
+    "Glob with empty pattern should return an empty array"
+  );
+});
+
+test("globSync with empty pattern returns empty array", (t) => {
+  const files = globSync("");
+  t.deepEqual(
+    files,
+    [],
+    "GlobSync with empty pattern should return an empty array"
+  );
 });
