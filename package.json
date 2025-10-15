@@ -9,6 +9,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.23",
-    "kpx": "^0.2.1"
+    "ava": "^6.4.0"
   }
 }
