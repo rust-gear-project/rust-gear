@@ -82,6 +82,10 @@ fn walk_and_filter(
                 relative_path.to_string_lossy().to_string()
             };
 
+            if s.is_empty() {
+                return ignore::WalkState::Continue;
+            }
+            
             let mut r = results.lock().unwrap();
             r.push(s);
 
