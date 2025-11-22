@@ -50,7 +50,9 @@ fn walk_and_filter(
 ) -> Result<Vec<String>> {
     let has_absolute_pattern = patterns.iter().any(|pat| is_absolute_pattern(pat));
     let walker = WalkBuilder::new(cwd)
-        .standard_filters(true)
+        .standard_filters(false) // All manual mode
+        .hidden(true) // Ignore the hidden files
+        .git_ignore(true) // Respect .gitignore
         .build_parallel();
 
     let results = std::sync::Mutex::new(Vec::new());
