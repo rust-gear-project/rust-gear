@@ -36,11 +36,14 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
         with:
-          node-version: 20
+          version: 10
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 25
+          cache: "pnpm"
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -74,7 +77,6 @@ jobs:
 
       - name: Setup pnpm
         run: |
-          npm install -g pnpm
           pnpm install
 
       - name: Build napi binaries for all packages
@@ -108,13 +110,17 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4.0.0
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
         with:
-          node-version: 20
+          version: 10
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 25
           registry-url: "https://registry.npmjs.org"
           scope: "@rust-gear"
           always-auth: true
+          cache: "pnpm"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -162,7 +168,6 @@ jobs:
 
       - name: Setup pnpm
         run: |
-          npm install -g pnpm
           pnpm install
 
       - name: Generate platform-specific package.json and README.md
@@ -196,15 +201,13 @@ jobs:
 
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     steps:
       - uses: actions/checkout@v5
-
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
-          version: 9
-
+          version: 10
       - uses: actions/setup-node@v5
         with:
           node-version: 25
@@ -214,12 +217,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Publish main packages
+      - name: Build and update main packages
         shell: bash
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
-            echo "Publishing main package: $package"
+            echo "Processing main package: $package"
             if [ -d "packages/$package" ]; then
               cd "packages/$package"
               pnpm build
@@ -231,6 +234,19 @@ jobs:
               echo "Package directory packages/$package not found, skipping"
             fi
           done
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add packages/*/package.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update optionalDependencies versions"
+            git push
+          fi
 
     # - name: Check final output
     #   shell: bash
