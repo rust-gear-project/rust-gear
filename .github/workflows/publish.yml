@@ -201,6 +201,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: pnpm/action-setup@v4
         with:
           version: 10
