@@ -190,20 +190,62 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # - name: Check final output
-      #   shell: bash
-      #   run: |
-      #     IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
-      #     for package in "${PACKAGE_LIST[@]}"; do
-      #       echo "=== Package: $package ==="
-      #       ls -R packages/$package/ || echo "No files found for $package"
-      #     done
+  publish-main:
+    needs: prepublish
+    runs-on: ubuntu-latest
 
-      # - name: Upload npm directories as artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: npm-packages
-      #     path: |
-      #       packages/*/npm/
-      #       packages/*/npm/**/*
-      #     retention-days: 1
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 25
+          registry-url: "https://registry.npmjs.org"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Publish main packages
+        shell: bash
+        run: |
+          IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
+          for package in "${PACKAGE_LIST[@]}"; do
+            echo "Publishing main package: $package"
+            if [ -d "packages/$package" ]; then
+              cd "packages/$package"
+              pnpm build
+              pnpm update:main
+              pnpm test
+              npm publish
+              cd ../..
+            else
+              echo "Package directory packages/$package not found, skipping"
+            fi
+          done
+
+    # - name: Check final output
+    #   shell: bash
+    #   run: |
+    #     IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
+    #     for package in "${PACKAGE_LIST[@]}"; do
+    #       echo "=== Package: $package ==="
+    #       ls -R packages/$package/ || echo "No files found for $package"
+    #     done
+
+    # - name: Upload npm directories as artifacts
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: npm-packages
+    #     path: |
+    #       packages/*/npm/
+    #       packages/*/npm/**/*
+    #     retention-days: 1
