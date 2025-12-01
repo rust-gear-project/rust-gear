@@ -1,6 +1,6 @@
 {
   "name": "@rust-gear/glob",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Node.js bindings for Rust glob library",
   "keywords": [
     "rust-gear",
@@ -40,6 +40,7 @@
     "build": "napi build --platform --release",
     "packages": "node ../../scripts/generate-platform-packages.js",
     "readme": "node ../../scripts/generate-platform-readme.js",
+    "update:main": "node ../../scripts/update-main-package.js",
     "test": "ava"
   },
   "engines": {
