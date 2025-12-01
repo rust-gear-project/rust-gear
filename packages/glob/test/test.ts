@@ -1,6 +1,6 @@
 import test from "ava";
 import path from "path";
-import { globSync, glob } from "../index.mjs";
+import { globSync, glob } from "../index.js";
 
 test("async glob", async (t) => {
   const files = await glob(path.join(process.cwd(), "src/**/*.rs"));
