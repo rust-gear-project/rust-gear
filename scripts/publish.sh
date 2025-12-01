@@ -37,8 +37,18 @@ for package in "${PACKAGE_LIST[@]}"; do
                 
                 # check if package.json exists
                 if [ -f "package.json" ]; then
-                    npm publish --access public --provenance
-                    echo "✅ Published $package-$platform_name"
+                    # Get package name and version
+                    PKG_NAME=$(node -p "require('./package.json').name")
+                    PKG_VERSION=$(node -p "require('./package.json').version")
+                    
+                    # Check if this version already exists on npm
+                    if npm view "$PKG_NAME@$PKG_VERSION" version &>/dev/null; then
+                        echo "⚠️  Package $PKG_NAME@$PKG_VERSION already exists, skipping..."
+                    else
+                        echo "📦 Publishing $PKG_NAME@$PKG_VERSION..."
+                        npm publish --access public --provenance
+                        echo "✅ Published $package-$platform_name"
+                    fi
                 else
                     echo "⚠️  No package.json found in $platform_dir, skipping"
                 fi
@@ -48,7 +58,7 @@ for package in "${PACKAGE_LIST[@]}"; do
         done
         
         cd ../../..
-        echo "✅ Completed publishing $package"
+        echo "✅ Completed processing $package"
     else
         echo "❌ npm directory not found for $package, skipping"
     fi
@@ -56,4 +66,4 @@ for package in "${PACKAGE_LIST[@]}"; do
     echo ""
 done
 
-echo "🎉 All packages published successfully!"
+echo "🎉 All packages processed successfully!"
