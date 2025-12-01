@@ -213,7 +213,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and update main packages
+      - name: Publish and update main package
         shell: bash
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
@@ -222,8 +222,8 @@ jobs:
             if [ -d "packages/$package" ]; then
               cd "packages/$package"
               pnpm build
-              pnpm update:main
               pnpm test
+              pnpm update:main
               npm publish
               cd ../..
             else
