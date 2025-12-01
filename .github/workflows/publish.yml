@@ -189,11 +189,7 @@ jobs:
       - name: Publish packages
         shell: bash
         run: |
-          echo "@rust-gear:registry=https://registry.npmjs.org/" > .npmrc
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
           ./scripts/publish.sh "$PACKAGES"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-main:
     needs: prepublish
