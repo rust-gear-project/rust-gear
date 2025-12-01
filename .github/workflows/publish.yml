@@ -224,6 +224,19 @@ jobs:
             echo "Processing main package: $package"
             if [ -d "packages/$package" ]; then
               cd "packages/$package"
+              
+              # Get package name and version
+              PKG_NAME=$(node -p "require('./package.json').name")
+              PKG_VERSION=$(node -p "require('./package.json').version")
+              
+              # Check if this version already exists on npm
+              if npm view "$PKG_NAME@$PKG_VERSION" version &>/dev/null; then
+                echo "⚠️  Package $PKG_NAME@$PKG_VERSION already exists, skipping publish..."
+                cd ../..
+                continue
+              fi
+
+              echo "📦 Building and publishing $PKG_NAME@$PKG_VERSION..."
               pnpm build
               pnpm test
               pnpm update:main
