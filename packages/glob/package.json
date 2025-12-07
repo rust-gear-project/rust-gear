@@ -1,6 +1,6 @@
 {
   "name": "@rust-gear/glob",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Node.js bindings for Rust glob library",
   "keywords": [
     "rust-gear",
@@ -15,7 +15,6 @@
   "license": "Apache-2.0",
   "author": "Refirst 11",
   "main": "index.js",
-  "module": "index.mjs",
   "types": "index.d.ts",
   "files": [
     "index.js",
