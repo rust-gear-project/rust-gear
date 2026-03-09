@@ -1,15 +1,12 @@
 # @rust-gear/glob
 
-A high-performance napi-rs glob library powered by Rust's [globset](https://docs.rs/globset).
+A high-performance [napi-rs](https://napi.rs/) glob library powered by Rust's [globset](https://docs.rs/globset).
 
 ## ⚡ Performance
 
-Significantly faster than Node.js built-in `fs.globSync`:
+Faster than Node.js built-in fs.globSync:
 
-- **2-3x faster** for typical glob patterns
-- **8x faster** for large file sets (5000+ files)
-
-Based on benchmarks with 4,000-12,000 files across various patterns.
+- **3-9x faster** for typical glob patterns
 
 ## Installation
 
@@ -20,13 +17,13 @@ npm install --save-dev @rust-gear/glob
 ## Usage
 
 ```js
-import { globSync, glob } from "@rust-gear/glob";
+import * as rs from "@rust-gear/glob";
 
-const files = globSync("src/**/*.rs");
+const files = rs.globSync("src/**/*.rs");
 
-const filesAsync = await glob("src/**/*.rs");
+const filesAsync = await rs.glob("src/**/*.rs");
 
-const files = globSync("**/*.rs", {
+const files = rs.globSync("**/*.rs", {
   cwd: "src",
   exclude: ["**/test/**", "**/target/**"],
 });
