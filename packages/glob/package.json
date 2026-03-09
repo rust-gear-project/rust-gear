@@ -1,6 +1,6 @@
 {
   "name": "@rust-gear/glob",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Node.js bindings for Rust glob library",
   "keywords": [
     "rust-gear",
