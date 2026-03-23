@@ -1,12 +1,10 @@
 # @rust-gear/glob
 
-A high-performance [napi-rs](https://napi.rs/) glob library powered by Rust's [globset](https://docs.rs/globset).
+A fast glob alternative for Node.js powered by Rust.
 
-## ⚡ Performance
+## Performance
 
-Faster than Node.js built-in fs.globSync:
-
-- **3-9x faster** for typical glob patterns
+- **3–10x faster** than traditional JavaScript glob implementations.
 
 ## Installation
 
@@ -19,8 +17,6 @@ npm install --save-dev @rust-gear/glob
 ```js
 import * as rs from "@rust-gear/glob";
 
-const files = rs.globSync("src/**/*.rs");
-
 const filesAsync = await rs.glob("src/**/*.rs");
 
 const files = rs.globSync("**/*.rs", {
@@ -29,16 +25,18 @@ const files = rs.globSync("**/*.rs", {
 });
 ```
 
-> **Return path type:**  
-> Absolute patterns return absolute paths.  
-> Relative patterns return paths relative to the specified `cwd`.
+> **Return paths:**  
+> Absolute patterns → absolute paths  
+> Relative patterns → paths relative to `cwd`
 
 ## Options
 
-| Option  | Type     | Description                             |
-| :------ | :------- | :-------------------------------------- |
-| cwd     | string   | Current working directory for searching |
-| exclude | string[] | Array of glob patterns to exclude       |
+| Option  | Type     | Default         | Description                             |
+| :------ | :------- | :-------------- | :-------------------------------------- |
+| cwd     | string   | `process.cwd()` | Current working directory for searching |
+| exclude | string[] | `[]`            | Glob patterns to exclude                |
+| dot     | boolean  | `false`         | Include dot files and directories       |
+| sort    | boolean  | `false`         | Return sorted results                   |
 
 ## License
 
