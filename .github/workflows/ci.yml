@@ -22,6 +22,7 @@ jobs:
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
+            cd packages/$package
             cargo fmt --all -- --check --manifest-path packages/$package/Cargo.toml
           done
 
@@ -29,6 +30,7 @@ jobs:
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
+            cd packages/$package
             cargo clippy --all-targets --all-features -- -D warnings --manifest-path packages/$package/Cargo.toml
           done
 
@@ -36,6 +38,7 @@ jobs:
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
+            cd packages/$package
             cargo test --manifest-path packages/$package/Cargo.toml
           done
 
@@ -65,6 +68,7 @@ jobs:
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
+            cd packages/$package
             pnpm --filter $package build
           done
 
@@ -73,5 +77,6 @@ jobs:
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
+            cd packages/$package
             pnpm --filter $package test
           done
