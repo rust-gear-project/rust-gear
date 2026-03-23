@@ -10,7 +10,7 @@ env:
   PACKAGES: "glob"
 
 jobs:
-  lint-and-test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,15 +39,29 @@ jobs:
             cargo test --manifest-path packages/$package/Cargo.toml
           done
 
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 25
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
 
       - name: Build .node binary
+        shell: bash
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
@@ -55,6 +69,7 @@ jobs:
           done
 
       - name: Run Node tests
+        shell: bash
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
