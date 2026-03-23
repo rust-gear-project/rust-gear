@@ -63,14 +63,14 @@ fn determine_base_path(cwd: &Path, patterns: &[String]) -> PathBuf {
         let static_part = match pattern.find(|c| glob_chars.contains(&c)) {
             Some(idx) => {
                 let prefix = &pattern[..idx];
-                if let Some(last_sep) = prefix.rfind(|c| c == '/' || c == '\\') {
+                if let Some(last_sep) = prefix.rfind(['/', '\\']) {
                     &prefix[..last_sep]
                 } else {
                     ""
                 }
             }
             None => {
-                if let Some(last_sep) = pattern.rfind(|c| c == '/' || c == '\\') {
+                if let Some(last_sep) = pattern.rfind(['/', '\\']) {
                     &pattern[..last_sep]
                 } else {
                     ""
@@ -148,7 +148,7 @@ fn walk_and_filter(
                 let path = entry.path();
                 let relative_path = path.strip_prefix(&cwd).unwrap_or(path);
 
-                if entry.file_type().map_or(true, |ft| ft.is_dir()) {
+                if entry.file_type().is_none_or(|ft| ft.is_dir()) {
                     if !exclude.is_empty()
                         && (exclude.is_match(relative_path)
                             || (!has_relative_only && exclude.is_match(path)))
