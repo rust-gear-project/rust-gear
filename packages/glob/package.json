@@ -1,12 +1,24 @@
 {
   "name": "@rust-gear/glob",
-  "version": "0.2.8",
-  "description": "Node.js bindings for Rust glob library",
+  "version": "1.0.0",
+  "description": "A fast glob alternative for Node.js powered by Rust.",
   "keywords": [
-    "rust-gear",
     "glob",
-    "napi",
-    "napi-rs"
+    "globset",
+    "fast-glob",
+    "fast glob",
+    "glob alternative",
+    "file search",
+    "file matching",
+    "file system",
+    "directory traversal",
+    "rust",
+    "napi-rs",
+    "node",
+    "nodejs",
+    "native",
+    "high-performance",
+    "parallel"
   ],
   "repository": {
     "type": "git",
