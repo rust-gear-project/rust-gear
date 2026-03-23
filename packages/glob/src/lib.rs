@@ -1,15 +1,18 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
+use flume::unbounded;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use ignore::WalkBuilder;
+use napi::bindgen_prelude::*;
+use napi_derive::napi;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[napi(object)]
 #[derive(Clone)]
 pub struct GlobOptions {
     pub exclude: Option<Vec<String>>,
     pub cwd: Option<String>,
+    pub dot: Option<bool>,
+    pub sort: Option<bool>,
 }
 
 fn resolve_cwd(cwd: &Option<String>) -> Result<PathBuf> {
@@ -23,8 +26,7 @@ fn resolve_cwd(cwd: &Option<String>) -> Result<PathBuf> {
             Ok(current_dir.join(path))
         }
     } else {
-        std::env::current_dir()
-            .map_err(|e| Error::new(Status::GenericFailure, e.to_string()))
+        std::env::current_dir().map_err(|e| Error::new(Status::GenericFailure, e.to_string()))
     }
 }
 
@@ -32,10 +34,14 @@ fn build_globset(patterns: &[String]) -> Result<GlobSet> {
     let mut builder = GlobSetBuilder::new();
     for pat in patterns {
         builder.add(Glob::new(pat).map_err(|e| {
-            Error::new(Status::InvalidArg, format!("Invalid glob pattern '{}': {}", pat, e))
+            Error::new(
+                Status::InvalidArg,
+                format!("Invalid glob pattern '{}': {}", pat, e),
+            )
         })?);
     }
-    builder.build()
+    builder
+        .build()
         .map_err(|e| Error::new(Status::InvalidArg, e.to_string()))
 }
 
@@ -112,15 +118,19 @@ fn walk_and_filter(
     include: Arc<GlobSet>,
     exclude: Arc<GlobSet>,
     has_absolute_pattern: bool,
+    hide_dot_file: bool,
+    sort: bool,
 ) -> Result<Vec<String>> {
-    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    let (tx, rx) = unbounded::<String>();
+
     let cwd_owned = cwd.to_path_buf();
-    // If all paths are relative, only check for matching of relative paths.
     let has_relative_only = !has_absolute_pattern;
+
+    let handle = std::thread::spawn(move || rx.into_iter().collect::<Vec<_>>());
 
     WalkBuilder::new(search_root)
         .standard_filters(false)
-        .hidden(true)
+        .hidden(hide_dot_file)
         .git_ignore(true)
         .build_parallel()
         .run(|| {
@@ -139,14 +149,15 @@ fn walk_and_filter(
                 let relative_path = path.strip_prefix(&cwd).unwrap_or(path);
 
                 if entry.file_type().map_or(true, |ft| ft.is_dir()) {
-                    // Check exclude only (include only for files)
-                    if !exclude.is_empty() && (exclude.is_match(relative_path) || (!has_relative_only && exclude.is_match(path))) {
+                    if !exclude.is_empty()
+                        && (exclude.is_match(relative_path)
+                            || (!has_relative_only && exclude.is_match(path)))
+                    {
                         return ignore::WalkState::Skip;
                     }
                     return ignore::WalkState::Continue;
                 }
 
-                // Optimization Only match once if only relative path
                 let is_included = if has_relative_only {
                     include.is_match(relative_path)
                 } else {
@@ -182,7 +193,65 @@ fn walk_and_filter(
         });
 
     drop(tx);
-    Ok(rx.into_iter().collect())
+
+    let mut result = handle.join().map_err(|_| {
+        Error::new(
+            Status::GenericFailure,
+            "failed to join result collector thread",
+        )
+    })?;
+
+    if sort {
+        result.sort();
+    }
+
+    Ok(result)
+}
+
+fn core(
+    patterns: Either<String, Vec<String>>,
+    options: Option<GlobOptions>,
+) -> Result<Vec<String>> {
+    let options = options.unwrap_or(GlobOptions {
+        exclude: None,
+        cwd: None,
+        dot: None,
+        sort: None,
+    });
+    let pattern_list = match patterns {
+        Either::A(s) => vec![s],
+        Either::B(v) => v,
+    };
+
+    let pattern_list: Vec<String> = pattern_list
+        .into_iter()
+        .map(|p| {
+            let normalized = p.replace("\\", "/");
+            normalized
+                .strip_prefix("./")
+                .unwrap_or(&normalized)
+                .to_string()
+        })
+        .collect();
+
+    let cwd = resolve_cwd(&options.cwd)?;
+    let search_root = determine_base_path(&cwd, &pattern_list);
+    let has_absolute = pattern_list.iter().any(|p| Path::new(p).is_absolute());
+
+    let include = Arc::new(build_globset(&pattern_list)?);
+    let exclude = Arc::new(build_globset(&options.exclude.unwrap_or_default())?);
+    let hide_dot_file = !options.dot.unwrap_or(false);
+    let sort = options.sort.unwrap_or(false);
+
+    walk_and_filter(
+        &search_root,
+        &cwd,
+        include,
+        exclude,
+        has_absolute,
+        hide_dot_file,
+        sort,
+    )
 }
 
 #[napi]
@@ -190,26 +259,7 @@ pub fn glob_sync(
     patterns: Either<String, Vec<String>>,
     options: Option<GlobOptions>,
 ) -> Result<Vec<String>> {
-    let options = options.unwrap_or(GlobOptions { exclude: None, cwd: None });
-    let pattern_list = match patterns {
-        Either::A(s) => vec![s],
-        Either::B(v) => v,
-    };
-
-    let pattern_list: Vec<String> = pattern_list
-    .into_iter()
-    .map(|p| p.trim_start_matches("./").to_string())
-    .collect();
-    
-
-    let cwd = resolve_cwd(&options.cwd)?;
-    let search_root = determine_base_path(&cwd, &pattern_list);
-    let has_absolute = pattern_list.iter().any(|p| Path::new(p).is_absolute());
-
-    let include = Arc::new(build_globset(&pattern_list)?);
-    let exclude = Arc::new(build_globset(&options.exclude.unwrap_or_default())?);
-
-    walk_and_filter(&search_root, &cwd, include, exclude, has_absolute)
+    core(patterns, options)
 }
 
 #[napi]
@@ -217,28 +267,7 @@ pub async fn glob(
     patterns: Either<String, Vec<String>>,
     options: Option<GlobOptions>,
 ) -> Result<Vec<String>> {
-    let options = options.unwrap_or(GlobOptions { exclude: None, cwd: None });
-    let pattern_list = match patterns {
-        Either::A(s) => vec![s],
-        Either::B(v) => v,
-    };
-
-    let pattern_list: Vec<String> = pattern_list
-    .into_iter()
-    .map(|p| p.trim_start_matches("./").to_string())
-    .collect();
-    
-
-    let cwd = resolve_cwd(&options.cwd)?;
-    let search_root = determine_base_path(&cwd, &pattern_list);
-    let has_absolute = pattern_list.iter().any(|p| Path::new(p).is_absolute());
-
-    let include = Arc::new(build_globset(&pattern_list)?);
-    let exclude = Arc::new(build_globset(&options.exclude.unwrap_or_default())?);
-
-    tokio::task::spawn_blocking(move || {
-        walk_and_filter(&search_root, &cwd, include, exclude, has_absolute)
-    })
-    .await
-    .map_err(|e| Error::new(Status::GenericFailure, e.to_string()))?
+    tokio::task::spawn_blocking(move || core(patterns, options))
+        .await
+        .map_err(|e| Error::new(Status::GenericFailure, e.to_string()))?
 }
