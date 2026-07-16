@@ -1,10 +1,9 @@
-use flume::unbounded;
-use globset::{Glob, GlobSet, GlobSetBuilder};
-use ignore::WalkBuilder;
+use globset::{Candidate, Glob, GlobSet, GlobSetBuilder};
+use ignore::{DirEntry, WalkBuilder, WalkState};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::Mutex;
 
 #[napi(object)]
 #[derive(Clone)]
@@ -112,97 +111,128 @@ fn determine_base_path(cwd: &Path, patterns: &[String]) -> PathBuf {
     }
 }
 
+struct WalkContext {
+    cwd: PathBuf,
+    include: GlobSet,
+    exclude: GlobSet,
+    has_absolute_pattern: bool,
+    results: Mutex<Vec<String>>,
+}
+
+/// Per-thread visitor: collects matches locally and merges them into the
+/// shared vec once on drop, so worker threads never contend mid-walk.
+struct MatchCollector<'a> {
+    ctx: &'a WalkContext,
+    local: Vec<String>,
+}
+
+impl ignore::ParallelVisitor for MatchCollector<'_> {
+    fn visit(&mut self, result: std::result::Result<DirEntry, ignore::Error>) -> WalkState {
+        let entry = match result {
+            Ok(e) => e,
+            Err(_) => return WalkState::Continue,
+        };
+        let ctx = self.ctx;
+
+        let path = entry.path();
+        let relative_path = path.strip_prefix(&ctx.cwd).unwrap_or(path);
+        let rel_candidate = Candidate::new(relative_path);
+
+        if entry.file_type().is_none_or(|ft| ft.is_dir()) {
+            if !ctx.exclude.is_empty()
+                && (ctx.exclude.is_match_candidate(&rel_candidate)
+                    || (ctx.has_absolute_pattern
+                        && ctx.exclude.is_match_candidate(&Candidate::new(path))))
+            {
+                return WalkState::Skip;
+            }
+            return WalkState::Continue;
+        }
+
+        let is_match = if ctx.has_absolute_pattern {
+            let abs_candidate = Candidate::new(path);
+            (ctx.include.is_match_candidate(&rel_candidate)
+                || ctx.include.is_match_candidate(&abs_candidate))
+                && !(ctx.exclude.is_match_candidate(&rel_candidate)
+                    || ctx.exclude.is_match_candidate(&abs_candidate))
+        } else {
+            ctx.include.is_match_candidate(&rel_candidate)
+                && !ctx.exclude.is_match_candidate(&rel_candidate)
+        };
+
+        if !is_match {
+            return WalkState::Continue;
+        }
+
+        let s = if ctx.has_absolute_pattern {
+            path.to_string_lossy().into_owned()
+        } else {
+            relative_path.to_string_lossy().into_owned()
+        };
+
+        if !s.is_empty() {
+            self.local.push(s);
+        }
+
+        WalkState::Continue
+    }
+}
+
+impl Drop for MatchCollector<'_> {
+    fn drop(&mut self) {
+        let mut shared = self
+            .ctx
+            .results
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        shared.append(&mut self.local);
+    }
+}
+
+struct MatchCollectorBuilder<'a> {
+    ctx: &'a WalkContext,
+}
+
+impl<'s> ignore::ParallelVisitorBuilder<'s> for MatchCollectorBuilder<'s> {
+    fn build(&mut self) -> Box<dyn ignore::ParallelVisitor + 's> {
+        Box::new(MatchCollector {
+            ctx: self.ctx,
+            local: Vec::new(),
+        })
+    }
+}
+
 fn walk_and_filter(
     search_root: &Path,
     cwd: &Path,
-    include: Arc<GlobSet>,
-    exclude: Arc<GlobSet>,
+    include: GlobSet,
+    exclude: GlobSet,
     has_absolute_pattern: bool,
     hide_dot_file: bool,
     sort: bool,
 ) -> Result<Vec<String>> {
-    let (tx, rx) = unbounded::<String>();
-
-    let cwd_owned = cwd.to_path_buf();
-    let has_relative_only = !has_absolute_pattern;
-
-    let handle = std::thread::spawn(move || rx.into_iter().collect::<Vec<_>>());
+    let ctx = WalkContext {
+        cwd: cwd.to_path_buf(),
+        include,
+        exclude,
+        has_absolute_pattern,
+        results: Mutex::new(Vec::new()),
+    };
 
     WalkBuilder::new(search_root)
         .standard_filters(false)
         .hidden(hide_dot_file)
         .git_ignore(true)
         .build_parallel()
-        .run(|| {
-            let tx = tx.clone();
-            let include = Arc::clone(&include);
-            let exclude = Arc::clone(&exclude);
-            let cwd = cwd_owned.clone();
+        .visit(&mut MatchCollectorBuilder { ctx: &ctx });
 
-            Box::new(move |result| {
-                let entry = match result {
-                    Ok(e) => e,
-                    Err(_) => return ignore::WalkState::Continue,
-                };
-
-                let path = entry.path();
-                let relative_path = path.strip_prefix(&cwd).unwrap_or(path);
-
-                if entry.file_type().is_none_or(|ft| ft.is_dir()) {
-                    if !exclude.is_empty()
-                        && (exclude.is_match(relative_path)
-                            || (!has_relative_only && exclude.is_match(path)))
-                    {
-                        return ignore::WalkState::Skip;
-                    }
-                    return ignore::WalkState::Continue;
-                }
-
-                let is_included = if has_relative_only {
-                    include.is_match(relative_path)
-                } else {
-                    include.is_match(relative_path) || include.is_match(path)
-                };
-
-                if !is_included {
-                    return ignore::WalkState::Continue;
-                }
-
-                let is_excluded = if has_relative_only {
-                    exclude.is_match(relative_path)
-                } else {
-                    exclude.is_match(relative_path) || exclude.is_match(path)
-                };
-
-                if is_excluded {
-                    return ignore::WalkState::Continue;
-                }
-
-                let s = if has_absolute_pattern {
-                    path.to_string_lossy().into_owned()
-                } else {
-                    relative_path.to_string_lossy().into_owned()
-                };
-
-                if !s.is_empty() {
-                    let _ = tx.send(s);
-                }
-
-                ignore::WalkState::Continue
-            })
-        });
-
-    drop(tx);
-
-    let mut result = handle.join().map_err(|_| {
-        Error::new(
-            Status::GenericFailure,
-            "failed to join result collector thread",
-        )
-    })?;
+    let mut result = ctx
+        .results
+        .into_inner()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     if sort {
-        result.sort();
+        result.sort_unstable();
     }
 
     Ok(result)
@@ -226,11 +256,15 @@ fn core(
     let pattern_list: Vec<String> = pattern_list
         .into_iter()
         .map(|p| {
-            let normalized = p.replace("\\", "/");
-            normalized
-                .strip_prefix("./")
-                .unwrap_or(&normalized)
-                .to_string()
+            let normalized = if p.contains('\\') {
+                p.replace('\\', "/")
+            } else {
+                p
+            };
+            match normalized.strip_prefix("./") {
+                Some(stripped) => stripped.to_string(),
+                None => normalized,
+            }
         })
         .collect();
 
@@ -238,8 +272,8 @@ fn core(
     let search_root = determine_base_path(&cwd, &pattern_list);
     let has_absolute = pattern_list.iter().any(|p| Path::new(p).is_absolute());
 
-    let include = Arc::new(build_globset(&pattern_list)?);
-    let exclude = Arc::new(build_globset(&options.exclude.unwrap_or_default())?);
+    let include = build_globset(&pattern_list)?;
+    let exclude = build_globset(&options.exclude.unwrap_or_default())?;
     let hide_dot_file = !options.dot.unwrap_or(false);
     let sort = options.sort.unwrap_or(false);
 
