@@ -1,9 +1,10 @@
 use globset::{Candidate, Glob, GlobSet, GlobSetBuilder};
-use ignore::{DirEntry, WalkBuilder, WalkState};
+use ignore::Match;
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[napi(object)]
 #[derive(Clone)]
@@ -116,41 +117,108 @@ struct WalkContext {
     include: GlobSet,
     exclude: GlobSet,
     has_absolute_pattern: bool,
+    hide_dot_file: bool,
     results: Mutex<Vec<String>>,
 }
 
-/// Per-thread visitor: collects matches locally and merges them into the
-/// shared vec once on drop, so worker threads never contend mid-walk.
-struct MatchCollector<'a> {
-    ctx: &'a WalkContext,
-    local: Vec<String>,
+/// One `.gitignore` matcher; nodes chain up to matchers from ancestor
+/// directories so a deeper file's rules take precedence.
+struct GitignoreNode {
+    matcher: Gitignore,
+    parent: Option<Arc<GitignoreNode>>,
 }
 
-impl ignore::ParallelVisitor for MatchCollector<'_> {
-    fn visit(&mut self, result: std::result::Result<DirEntry, ignore::Error>) -> WalkState {
-        let entry = match result {
-            Ok(e) => e,
-            Err(_) => return WalkState::Continue,
-        };
-        let ctx = self.ctx;
+fn is_gitignored(mut node: Option<&Arc<GitignoreNode>>, path: &Path, is_dir: bool) -> bool {
+    while let Some(n) = node {
+        match n.matcher.matched(path, is_dir) {
+            Match::None => node = n.parent.as_ref(),
+            Match::Ignore(_) => return true,
+            Match::Whitelist(_) => return false,
+        }
+    }
+    false
+}
 
+/// Recursively walk `dir`, spawning subdirectories onto rayon's global pool.
+/// Gitignore rules only apply once a `.git` marker has been seen at or below
+/// the walk root (`in_git_repo`), mirroring the ignore crate's require_git.
+fn walk_dir<'a>(
+    ctx: &'a WalkContext,
+    dir: PathBuf,
+    parent_gitignore: Option<Arc<GitignoreNode>>,
+    mut in_git_repo: bool,
+    scope: &rayon::Scope<'a>,
+) {
+    let read_dir = match std::fs::read_dir(&dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+
+    let mut entries: Vec<(std::fs::DirEntry, std::fs::FileType)> = Vec::new();
+    let mut has_gitignore = false;
+
+    for entry in read_dir.flatten() {
+        let file_type = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        let name = entry.file_name();
+        let bytes = name.as_encoded_bytes();
+        if bytes.starts_with(b".") {
+            if bytes == b".gitignore" {
+                has_gitignore = true;
+            } else if bytes == b".git" || bytes == b".jj" {
+                in_git_repo = true;
+            }
+            if ctx.hide_dot_file {
+                continue;
+            }
+        }
+        entries.push((entry, file_type));
+    }
+
+    let gitignore = if has_gitignore {
+        let mut builder = GitignoreBuilder::new(&dir);
+        builder.add(dir.join(".gitignore"));
+        match builder.build() {
+            Ok(matcher) => Some(Arc::new(GitignoreNode {
+                matcher,
+                parent: parent_gitignore,
+            })),
+            Err(_) => parent_gitignore,
+        }
+    } else {
+        parent_gitignore
+    };
+
+    let mut matched: Vec<String> = Vec::new();
+
+    for (entry, file_type) in entries {
         let path = entry.path();
-        let relative_path = path.strip_prefix(&ctx.cwd).unwrap_or(path);
+        let is_dir = file_type.is_dir();
+
+        if in_git_repo && is_gitignored(gitignore.as_ref(), &path, is_dir) {
+            continue;
+        }
+
+        let relative_path = path.strip_prefix(&ctx.cwd).unwrap_or(&path);
         let rel_candidate = Candidate::new(relative_path);
 
-        if entry.file_type().is_none_or(|ft| ft.is_dir()) {
+        if is_dir {
             if !ctx.exclude.is_empty()
                 && (ctx.exclude.is_match_candidate(&rel_candidate)
                     || (ctx.has_absolute_pattern
-                        && ctx.exclude.is_match_candidate(&Candidate::new(path))))
+                        && ctx.exclude.is_match_candidate(&Candidate::new(&path))))
             {
-                return WalkState::Skip;
+                continue;
             }
-            return WalkState::Continue;
+            let gitignore = gitignore.clone();
+            scope.spawn(move |s| walk_dir(ctx, path, gitignore, in_git_repo, s));
+            continue;
         }
 
         let is_match = if ctx.has_absolute_pattern {
-            let abs_candidate = Candidate::new(path);
+            let abs_candidate = Candidate::new(&path);
             (ctx.include.is_match_candidate(&rel_candidate)
                 || ctx.include.is_match_candidate(&abs_candidate))
                 && !(ctx.exclude.is_match_candidate(&rel_candidate)
@@ -161,7 +229,7 @@ impl ignore::ParallelVisitor for MatchCollector<'_> {
         };
 
         if !is_match {
-            return WalkState::Continue;
+            continue;
         }
 
         let s = if ctx.has_absolute_pattern {
@@ -171,34 +239,16 @@ impl ignore::ParallelVisitor for MatchCollector<'_> {
         };
 
         if !s.is_empty() {
-            self.local.push(s);
+            matched.push(s);
         }
-
-        WalkState::Continue
     }
-}
 
-impl Drop for MatchCollector<'_> {
-    fn drop(&mut self) {
-        let mut shared = self
-            .ctx
+    if !matched.is_empty() {
+        let mut shared = ctx
             .results
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        shared.append(&mut self.local);
-    }
-}
-
-struct MatchCollectorBuilder<'a> {
-    ctx: &'a WalkContext,
-}
-
-impl<'s> ignore::ParallelVisitorBuilder<'s> for MatchCollectorBuilder<'s> {
-    fn build(&mut self) -> Box<dyn ignore::ParallelVisitor + 's> {
-        Box::new(MatchCollector {
-            ctx: self.ctx,
-            local: Vec::new(),
-        })
+        shared.append(&mut matched);
     }
 }
 
@@ -216,15 +266,21 @@ fn walk_and_filter(
         include,
         exclude,
         has_absolute_pattern,
+        hide_dot_file,
         results: Mutex::new(Vec::new()),
     };
 
-    WalkBuilder::new(search_root)
-        .standard_filters(false)
-        .hidden(hide_dot_file)
-        .git_ignore(true)
-        .build_parallel()
-        .visit(&mut MatchCollectorBuilder { ctx: &ctx });
+    // The walk root itself can be pruned by an exclude pattern.
+    if !ctx.exclude.is_empty() {
+        let root_relative = search_root.strip_prefix(cwd).unwrap_or(search_root);
+        if ctx.exclude.is_match_candidate(&Candidate::new(root_relative))
+            || (has_absolute_pattern && ctx.exclude.is_match_candidate(&Candidate::new(search_root)))
+        {
+            return Ok(Vec::new());
+        }
+    }
+
+    rayon::scope(|s| walk_dir(&ctx, search_root.to_path_buf(), None, false, s));
 
     let mut result = ctx
         .results
@@ -267,6 +323,10 @@ fn core(
             }
         })
         .collect();
+
+    if pattern_list.iter().all(|p| p.is_empty()) {
+        return Ok(Vec::new());
+    }
 
     let cwd = resolve_cwd(&options.cwd)?;
     let search_root = determine_base_path(&cwd, &pattern_list);
