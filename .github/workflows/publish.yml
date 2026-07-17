@@ -4,24 +4,73 @@ on:
   push:
     tags:
       - "@rust-gear/*@*"
+    branches: ["main"]
   workflow_dispatch:
 
 env:
   PACKAGES: "glob"
 
 jobs:
+  # Decides whether this event should run the publish pipeline:
+  # - tag push / manual dispatch: always
+  # - push to main: only when a release tag exists for the current
+  #   package.json version but npm does not have that version yet
+  #   (i.e. a previous release run failed and this push fixes it)
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.gate.outputs.should_publish }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether to publish
+        id: gate
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          should=false
+          IFS=',' read -ra PACKAGE_LIST <<< "${PACKAGES}"
+          for package in "${PACKAGE_LIST[@]}"; do
+            [ -f "packages/$package/package.json" ] || continue
+            NAME=$(node -p "require('./packages/$package/package.json').name")
+            VERSION=$(node -p "require('./packages/$package/package.json').version")
+            if git rev-parse -q --verify "refs/tags/$NAME@$VERSION" >/dev/null; then
+              if ! npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+                echo "Resuming release: $NAME@$VERSION is tagged but not published on npm"
+                should=true
+              fi
+            fi
+          done
+          echo "should_publish=$should" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: check
+    if: needs.check.outputs.should_publish == 'true'
     strategy:
       matrix:
+        # napi CLI v3 no longer sets cross linkers automatically (v2 did), so
+        # Linux targets use the official napi-rs mechanisms:
+        # - glibc targets: --use-napi-cross (@napi-rs/cross-toolchain, glibc 2.17)
+        # - musl targets:  --cross-compile (cargo-zigbuild, needs zig on PATH)
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            flags: "--use-napi-cross"
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
+            flags: "--cross-compile"
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
+            flags: "--use-napi-cross"
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
+            flags: "--cross-compile"
           - os: windows-latest
             target: aarch64-pc-windows-msvc
           - os: windows-latest
@@ -51,29 +100,9 @@ jobs:
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
-      - name: Install Zig (user local)
-        if: |
-          startsWith(matrix.os, 'ubuntu') &&
-          (matrix.target == 'aarch64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-gnu')
-        run: |
-          ZIG_VERSION=0.11.0
-          ZIG_URL="https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz"
-          curl -LO "$ZIG_URL"
-          tar -xf zig-linux-x86_64-${ZIG_VERSION}.tar.xz
-          echo "$PWD/zig-linux-x86_64-${ZIG_VERSION}" >> $GITHUB_PATH
-          echo "ZIG=$PWD/zig-linux-x86_64-${ZIG_VERSION}/zig" >> $GITHUB_ENV
-
-      - name: Install aarch64 gnu cross toolchain
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
-      - name: Install musl cross toolchain
-        if: startsWith(matrix.os, 'ubuntu') && contains(matrix.target, 'linux-musl')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
+      - name: Install Zig (for cargo-zigbuild)
+        if: contains(matrix.target, 'linux-musl')
+        run: pip3 install ziglang
 
       - name: Setup pnpm
         run: |
@@ -87,7 +116,7 @@ jobs:
             echo "Building package: $package"
             if [ -d "packages/$package" ]; then
               cd "packages/$package"
-              pnpm build --target ${{ matrix.target }}
+              pnpm build --target ${{ matrix.target }} ${{ matrix.flags }}
               cd ../..
             else
               echo "Package directory packages/$package not found, skipping"
