@@ -1,0 +1,47 @@
+#!/bin/sh
+# Pre-commit hook: run the same Rust lint checks as CI (.github/workflows/ci.yml)
+# on packages that have staged .rs changes, and reject the commit with the
+# command to fix when a check fails.
+#
+# Bypass once with: git commit --no-verify
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+staged_rs=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.rs$')
+[ -z "$staged_rs" ] && exit 0
+
+status=0
+
+for manifest in packages/*/Cargo.toml; do
+  [ -f "$manifest" ] || continue
+  pkg_dir=$(dirname "$manifest")
+
+  case "$staged_rs" in
+    *"$pkg_dir"*) ;;
+    *) continue ;;
+  esac
+
+  echo "pre-commit: checking $pkg_dir ..."
+
+  if ! (cd "$pkg_dir" && cargo fmt --all -- --check); then
+    echo ""
+    echo "✖ rustfmt: unformatted code in $pkg_dir"
+    echo "  Run the following, then commit again:"
+    echo ""
+    echo "    cd $pkg_dir && cargo fmt --all"
+    echo ""
+    status=1
+  fi
+
+  if ! (cd "$pkg_dir" && cargo clippy --all-targets --all-features -- -D warnings); then
+    echo ""
+    echo "✖ clippy: warnings in $pkg_dir (CI runs with -D warnings)"
+    echo "  Check the output above. Auto-fix what is fixable with:"
+    echo ""
+    echo "    cd $pkg_dir && cargo clippy --fix --allow-staged --all-targets --all-features"
+    echo ""
+    status=1
+  fi
+done
+
+exit $status
