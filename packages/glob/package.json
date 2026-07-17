@@ -1,6 +1,6 @@
 {
   "name": "@rust-gear/glob",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A fast glob alternative for Node.js powered by Rust.",
   "keywords": [
     "glob",
@@ -34,17 +34,17 @@
     "index.d.ts"
   ],
   "napi": {
-    "name": "glob",
-    "triples": [
-      "darwin-arm64",
-      "darwin-x64",
-      "linux-arm64-gnu",
-      "linux-arm64-musl",
-      "linux-x64-gnu",
-      "linux-x64-musl",
-      "win32-x64-msvc",
-      "win32-ia32-msvc",
-      "win32-arm64-msvc"
+    "binaryName": "glob",
+    "targets": [
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-linux-musl",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "x86_64-pc-windows-msvc",
+      "i686-pc-windows-msvc",
+      "aarch64-pc-windows-msvc"
     ]
   },
   "scripts": {
@@ -52,7 +52,8 @@
     "packages": "node ../../scripts/generate-platform-packages.js",
     "readme": "node ../../scripts/generate-platform-readme.js",
     "update:main": "node ../../scripts/update-main-package.js",
-    "test": "ava"
+    "test": "ava",
+    "bench": "node bench/bench.mjs"
   },
   "engines": {
     "node": ">=10"
@@ -62,7 +63,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^2.18.4"
+    "@napi-rs/cli": "^3.7.3"
   },
   "optionalDependencies": {
     "@rust-gear/glob-darwin-arm64": "1.0.0",
