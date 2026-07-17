@@ -13,6 +13,7 @@ pub struct GlobOptions {
     pub cwd: Option<String>,
     pub dot: Option<bool>,
     pub sort: Option<bool>,
+    pub gitignore: Option<bool>,
 }
 
 fn resolve_cwd(cwd: &Option<String>) -> Result<PathBuf> {
@@ -118,6 +119,7 @@ struct WalkContext {
     exclude: GlobSet,
     has_absolute_pattern: bool,
     hide_dot_file: bool,
+    respect_gitignore: bool,
     results: Mutex<Vec<String>>,
 }
 
@@ -165,10 +167,12 @@ fn walk_dir<'a>(
         let name = entry.file_name();
         let bytes = name.as_encoded_bytes();
         if bytes.starts_with(b".") {
-            if bytes == b".gitignore" {
-                has_gitignore = true;
-            } else if bytes == b".git" || bytes == b".jj" {
-                in_git_repo = true;
+            if ctx.respect_gitignore {
+                if bytes == b".gitignore" {
+                    has_gitignore = true;
+                } else if bytes == b".git" || bytes == b".jj" {
+                    in_git_repo = true;
+                }
             }
             if ctx.hide_dot_file {
                 continue;
@@ -252,29 +256,15 @@ fn walk_dir<'a>(
     }
 }
 
-fn walk_and_filter(
-    search_root: &Path,
-    cwd: &Path,
-    include: GlobSet,
-    exclude: GlobSet,
-    has_absolute_pattern: bool,
-    hide_dot_file: bool,
-    sort: bool,
-) -> Result<Vec<String>> {
-    let ctx = WalkContext {
-        cwd: cwd.to_path_buf(),
-        include,
-        exclude,
-        has_absolute_pattern,
-        hide_dot_file,
-        results: Mutex::new(Vec::new()),
-    };
-
+fn walk_and_filter(search_root: &Path, ctx: WalkContext, sort: bool) -> Result<Vec<String>> {
     // The walk root itself can be pruned by an exclude pattern.
     if !ctx.exclude.is_empty() {
-        let root_relative = search_root.strip_prefix(cwd).unwrap_or(search_root);
-        if ctx.exclude.is_match_candidate(&Candidate::new(root_relative))
-            || (has_absolute_pattern && ctx.exclude.is_match_candidate(&Candidate::new(search_root)))
+        let root_relative = search_root.strip_prefix(&ctx.cwd).unwrap_or(search_root);
+        if ctx
+            .exclude
+            .is_match_candidate(&Candidate::new(root_relative))
+            || (ctx.has_absolute_pattern
+                && ctx.exclude.is_match_candidate(&Candidate::new(search_root)))
         {
             return Ok(Vec::new());
         }
@@ -303,6 +293,7 @@ fn core(
         cwd: None,
         dot: None,
         sort: None,
+        gitignore: None,
     });
     let pattern_list = match patterns {
         Either::A(s) => vec![s],
@@ -334,18 +325,19 @@ fn core(
 
     let include = build_globset(&pattern_list)?;
     let exclude = build_globset(&options.exclude.unwrap_or_default())?;
-    let hide_dot_file = !options.dot.unwrap_or(false);
     let sort = options.sort.unwrap_or(false);
 
-    walk_and_filter(
-        &search_root,
-        &cwd,
+    let ctx = WalkContext {
+        cwd,
         include,
         exclude,
-        has_absolute,
-        hide_dot_file,
-        sort,
-    )
+        has_absolute_pattern: has_absolute,
+        hide_dot_file: !options.dot.unwrap_or(false),
+        respect_gitignore: options.gitignore.unwrap_or(true),
+        results: Mutex::new(Vec::new()),
+    };
+
+    walk_and_filter(&search_root, ctx, sort)
 }
 
 #[napi]
