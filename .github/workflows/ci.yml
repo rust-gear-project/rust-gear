@@ -22,24 +22,21 @@ jobs:
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
-            cd packages/$package
-            cargo fmt --all -- --check
+            (cd packages/$package && cargo fmt --all -- --check)
           done
 
       - name: Run clippy
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
-            cd packages/$package
-            cargo clippy --all-targets --all-features -- -D warnings
+            (cd packages/$package && cargo clippy --all-targets --all-features -- -D warnings)
           done
 
       - name: Run tests
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
-            cd packages/$package
-            cargo test
+            (cd packages/$package && cargo test)
           done
 
   test:
@@ -54,7 +51,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 11
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -70,8 +67,7 @@ jobs:
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
-            cd packages/$package
-            pnpm --filter $package build
+            (cd packages/$package && pnpm build)
           done
 
       - name: Run Node tests
@@ -79,6 +75,5 @@ jobs:
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
-            cd packages/$package
-            pnpm --filter $package test
+            (cd packages/$package && pnpm test)
           done
