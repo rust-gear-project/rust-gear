@@ -2,6 +2,7 @@
   "name": "rust-gear-project",
   "private": true,
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
     "build": "pnpm -r build",
     "packages": "pnpm -r packages",
     "readme": "pnpm -r readme",
