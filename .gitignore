@@ -8,3 +8,4 @@ index.d.ts
 npm
 glob.darwin-arm64.node
 packages/glob/bench/fixture
+packages/glob/bench/fixture-git
