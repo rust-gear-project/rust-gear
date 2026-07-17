@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 11
       - uses: actions/setup-node@v5
         with:
           node-version: 25
@@ -113,7 +113,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 11
       - uses: actions/setup-node@v5
         with:
           node-version: 25
@@ -206,7 +206,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 11
       - uses: actions/setup-node@v5
         with:
           node-version: 25
@@ -228,7 +228,12 @@ jobs:
               # Get package name and version
               PKG_NAME=$(node -p "require('./package.json').name")
               PKG_VERSION=$(node -p "require('./package.json').version")
-              
+
+              # Sync optionalDependencies with the main version BEFORE the
+              # skip check, so the repo file is repaired by the commit step
+              # even when this version is already published.
+              pnpm update:main
+
               # Check if this version already exists on npm
               if npm view "$PKG_NAME@$PKG_VERSION" version &>/dev/null; then
                 echo "⚠️  Package $PKG_NAME@$PKG_VERSION already exists, skipping publish..."
@@ -239,7 +244,6 @@ jobs:
               echo "📦 Building and publishing $PKG_NAME@$PKG_VERSION..."
               pnpm build
               pnpm test
-              pnpm update:main
               npm publish
               cd ../..
             else
@@ -257,7 +261,8 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "chore: update optionalDependencies versions"
-            git push
+            git pull --rebase origin main
+            git push origin main
           fi
 
     # - name: Check final output
