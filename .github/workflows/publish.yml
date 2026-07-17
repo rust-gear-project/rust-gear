@@ -226,7 +226,7 @@ jobs:
 
     permissions:
       id-token: write
-      contents: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v5
@@ -279,20 +279,6 @@ jobs:
               echo "Package directory packages/$package not found, skipping"
             fi
           done
-
-      - name: Commit and push changes
-        shell: bash
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add packages/*/package.json
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "chore: update optionalDependencies versions"
-            git pull --rebase origin main
-            git push origin main
-          fi
 
     # - name: Check final output
     #   shell: bash
