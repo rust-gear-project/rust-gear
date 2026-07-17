@@ -7,8 +7,8 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = { version = "2", features = ["tokio_rt"] }
-napi-derive = "2.12.2"
+napi = { version = "3", features = ["tokio_rt"] }
+napi-derive = "3"
 globset = "0.4"
 ignore = "0.4"
 rayon = "1"
