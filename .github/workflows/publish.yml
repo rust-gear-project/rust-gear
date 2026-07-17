@@ -258,11 +258,6 @@ jobs:
               PKG_NAME=$(node -p "require('./package.json').name")
               PKG_VERSION=$(node -p "require('./package.json').version")
 
-              # Sync optionalDependencies with the main version BEFORE the
-              # skip check, so the repo file is repaired by the commit step
-              # even when this version is already published.
-              pnpm update:main
-
               # Check if this version already exists on npm
               if npm view "$PKG_NAME@$PKG_VERSION" version &>/dev/null; then
                 echo "⚠️  Package $PKG_NAME@$PKG_VERSION already exists, skipping publish..."
@@ -273,6 +268,13 @@ jobs:
               echo "📦 Building and publishing $PKG_NAME@$PKG_VERSION..."
               pnpm build
               pnpm test
+
+              # Inject optionalDependencies (platform packages at this version)
+              # into the manifest LAST: pnpm 11 verifies package.json against
+              # the lockfile before running any script, so this must come
+              # after pnpm build/test and run via node directly.
+              # npm publish does not check the pnpm lockfile.
+              node ../../scripts/update-main-package.js
               npm publish
               cd ../..
             else
