@@ -64,16 +64,5 @@
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.7.3"
-  },
-  "optionalDependencies": {
-    "@rust-gear/glob-darwin-arm64": "1.0.0",
-    "@rust-gear/glob-darwin-x64": "1.0.0",
-    "@rust-gear/glob-linux-arm64-gnu": "1.0.0",
-    "@rust-gear/glob-linux-arm64-musl": "1.0.0",
-    "@rust-gear/glob-linux-x64-gnu": "1.0.0",
-    "@rust-gear/glob-linux-x64-musl": "1.0.0",
-    "@rust-gear/glob-win32-arm64-msvc": "1.0.0",
-    "@rust-gear/glob-win32-ia32-msvc": "1.0.0",
-    "@rust-gear/glob-win32-x64-msvc": "1.0.0"
   }
 }
