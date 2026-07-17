@@ -14,6 +14,9 @@ importers:
       ava:
         specifier: ^6.4.0
         version: 6.4.1
+      fast-glob:
+        specifier: ^3.3.3
+        version: 3.3.3
 
   packages/glob:
     devDependencies:
