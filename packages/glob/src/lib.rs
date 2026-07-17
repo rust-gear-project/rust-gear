@@ -242,6 +242,10 @@ fn walk_dir<'a>(
             relative_path.to_string_lossy().into_owned()
         };
 
+        // Always return forward slashes, even on Windows
+        #[cfg(windows)]
+        let s = s.replace('\\', "/");
+
         if !s.is_empty() {
             matched.push(s);
         }
