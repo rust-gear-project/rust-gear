@@ -42,6 +42,32 @@ function generateFixture() {
   writeFileSync(join(fixture, '.done'), '')
 }
 
+// Same shape as the main fixture but laid out like a real git repo:
+// a .git marker at the root and a .gitignore in every mod*/ directory.
+const fixtureGit = join(benchDir, 'fixture-git')
+
+function generateGitFixture() {
+  if (existsSync(join(fixtureGit, '.done'))) return
+  console.log('generating git-like fixture tree (~50k files)...')
+  const exts = ['js', 'ts', 'rs', 'json', 'css', 'md']
+  mkdirSync(join(fixtureGit, '.git'), { recursive: true })
+  writeFileSync(join(fixtureGit, '.gitignore'), 'dist/\n*.log\n')
+  for (let a = 0; a < 20; a++) {
+    mkdirSync(join(fixtureGit, `mod${a}`), { recursive: true })
+    writeFileSync(join(fixtureGit, `mod${a}`, '.gitignore'), '*.md\n')
+    for (let b = 0; b < 10; b++) {
+      for (let c = 0; c < 10; c++) {
+        const dir = join(fixtureGit, `mod${a}`, `sub${b}`, `pkg${c}`)
+        mkdirSync(dir, { recursive: true })
+        for (let f = 0; f < 25; f++) {
+          writeFileSync(join(dir, `file${f}.${exts[f % exts.length]}`), '')
+        }
+      }
+    }
+  }
+  writeFileSync(join(fixtureGit, '.done'), '')
+}
+
 async function bench(name, fn, { warmup = 3, runs = 10 } = {}) {
   for (let i = 0; i < warmup; i++) await fn()
   const times = []
@@ -62,6 +88,7 @@ async function bench(name, fn, { warmup = 3, runs = 10 } = {}) {
 }
 
 generateFixture()
+generateGitFixture()
 
 const cases = [
   { label: '**/*.js', patterns: '**/*.js', options: {} },
@@ -86,4 +113,16 @@ for (const { label, patterns, options } of cases) {
       fg(patterns, { cwd: fixture, ignore: options.exclude ?? [] })
     )
   }
+}
+
+console.log('\n--- git-like tree: **/*.{js,ts} (gitignore on/off) ---')
+await bench(`gitignore: true (default)`, () =>
+  globSync('**/*.{js,ts}', { cwd: fixtureGit })
+)
+await bench(`gitignore: false`, () =>
+  globSync('**/*.{js,ts}', { cwd: fixtureGit, gitignore: false })
+)
+if (fg) {
+  await bench(`fast-glob sync`, () => fg.sync('**/*.{js,ts}', { cwd: fixtureGit }))
+  await bench(`fast-glob async`, () => fg('**/*.{js,ts}', { cwd: fixtureGit }))
 }
