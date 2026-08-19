@@ -5,11 +5,11 @@
 //
 // A deterministic synthetic tree (~50k files) is generated into
 // bench/fixture on first run so results are reproducible across machines.
+// See fixture.mjs.
 
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+
+import { fixture, fixtureGit, generateFixture, generateGitFixture } from './fixture.mjs'
 
 const require = createRequire(import.meta.url)
 const { globSync, glob } = require('../index.js')
@@ -19,53 +19,6 @@ try {
   fg = require('fast-glob')
 } catch {
   console.log('fast-glob not installed — skipping comparison\n')
-}
-
-const benchDir = dirname(fileURLToPath(import.meta.url))
-const fixture = join(benchDir, 'fixture')
-
-function generateFixture() {
-  if (existsSync(join(fixture, '.done'))) return
-  console.log('generating fixture tree (~50k files)...')
-  const exts = ['js', 'ts', 'rs', 'json', 'css', 'md']
-  for (let a = 0; a < 20; a++) {
-    for (let b = 0; b < 10; b++) {
-      for (let c = 0; c < 10; c++) {
-        const dir = join(fixture, `mod${a}`, `sub${b}`, `pkg${c}`)
-        mkdirSync(dir, { recursive: true })
-        for (let f = 0; f < 25; f++) {
-          writeFileSync(join(dir, `file${f}.${exts[f % exts.length]}`), '')
-        }
-      }
-    }
-  }
-  writeFileSync(join(fixture, '.done'), '')
-}
-
-// Same shape as the main fixture but laid out like a real git repo:
-// a .git marker at the root and a .gitignore in every mod*/ directory.
-const fixtureGit = join(benchDir, 'fixture-git')
-
-function generateGitFixture() {
-  if (existsSync(join(fixtureGit, '.done'))) return
-  console.log('generating git-like fixture tree (~50k files)...')
-  const exts = ['js', 'ts', 'rs', 'json', 'css', 'md']
-  mkdirSync(join(fixtureGit, '.git'), { recursive: true })
-  writeFileSync(join(fixtureGit, '.gitignore'), 'dist/\n*.log\n')
-  for (let a = 0; a < 20; a++) {
-    mkdirSync(join(fixtureGit, `mod${a}`), { recursive: true })
-    writeFileSync(join(fixtureGit, `mod${a}`, '.gitignore'), '*.md\n')
-    for (let b = 0; b < 10; b++) {
-      for (let c = 0; c < 10; c++) {
-        const dir = join(fixtureGit, `mod${a}`, `sub${b}`, `pkg${c}`)
-        mkdirSync(dir, { recursive: true })
-        for (let f = 0; f < 25; f++) {
-          writeFileSync(join(dir, `file${f}.${exts[f % exts.length]}`), '')
-        }
-      }
-    }
-  }
-  writeFileSync(join(fixtureGit, '.done'), '')
 }
 
 async function bench(name, fn, { warmup = 3, runs = 10 } = {}) {
