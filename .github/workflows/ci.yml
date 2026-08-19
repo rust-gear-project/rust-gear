@@ -32,11 +32,17 @@ jobs:
             (cd packages/$package && cargo clippy --all-targets --all-features -- -D warnings)
           done
 
-      - name: Run tests
+      # The walk-width policy is macOS-gated, so a clippy run on the Linux
+      # host never type-checks it. `cargo clippy` does not link, so the darwin
+      # target needs no cross toolchain.
+      - name: Add cross-compilation target
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Run clippy for macOS
         run: |
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
-            (cd packages/$package && cargo test)
+            (cd packages/$package && cargo clippy --target aarch64-apple-darwin --all-targets --all-features -- -D warnings)
           done
 
   test:
@@ -68,6 +74,18 @@ jobs:
           IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
           for package in "${PACKAGE_LIST[@]}"; do
             (cd packages/$package && pnpm build)
+          done
+
+      # Also prints the topology each runner detects, so the pool sizing is
+      # visible per OS. GitHub-hosted runners are uniform VMs: they confirm
+      # the probe is a no-op there, not the hybrid-core behaviour, which needs
+      # real hardware to observe.
+      - name: Run Rust tests
+        shell: bash
+        run: |
+          IFS=',' read -ra PACKAGE_LIST <<< "${{ env.PACKAGES }}"
+          for package in "${PACKAGE_LIST[@]}"; do
+            (cd packages/$package && cargo test -- --nocapture)
           done
 
       - name: Run Node tests
