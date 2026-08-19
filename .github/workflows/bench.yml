@@ -1,0 +1,73 @@
+name: Bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Git ref to compare against"
+        default: "main"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "packages/glob/src/**"
+      - "packages/glob/Cargo.toml"
+      - "packages/glob/bench/**"
+      - ".github/workflows/bench.yml"
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/glob
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+
+      - name: Resolve base commit
+        run: |
+          base="${{ github.event.pull_request.base.sha || inputs.base }}"
+          # The merge base, not the branch tip, so unrelated commits landed on
+          # main since the branch started are not part of the comparison.
+          echo "BASE_SHA=$(git merge-base HEAD "$base")" >> "$GITHUB_ENV"
+
+      - name: Build base
+        run: |
+          git worktree add ../../../base "$BASE_SHA"
+          (cd ../../../base/packages/glob && cargo build --release)
+
+      - name: Build head
+        run: cargo build --release
+
+      - name: Collect binaries
+        run: |
+          case "$RUNNER_OS" in
+            Linux) lib=librust_gear_glob.so ;;
+            macOS) lib=librust_gear_glob.dylib ;;
+            Windows) lib=rust_gear_glob.dll ;;
+          esac
+          # Kept inside the package so compare.mjs can be handed relative
+          # paths; a bash-style absolute path would not survive on Windows.
+          cp "../../../base/packages/glob/target/release/$lib" bench/base.node
+          cp "target/release/$lib" bench/head.node
+
+      - name: Compare
+        run: |
+          echo "base $BASE_SHA vs head ${{ github.sha }}"
+          node bench/compare.mjs bench/base.node bench/head.node
