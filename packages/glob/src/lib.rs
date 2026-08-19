@@ -4,7 +4,96 @@ use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
+
+#[allow(dead_code)]
+enum WalkWidth {
+    FastestCoreClass,
+    Full,
+}
+
+#[cfg(target_os = "macos")]
+const WALK_WIDTH: WalkWidth = WalkWidth::FastestCoreClass;
+
+#[cfg(not(target_os = "macos"))]
+const WALK_WIDTH: WalkWidth = WalkWidth::Full;
+
+fn performance_cores() -> Option<usize> {
+    platform::performance_cores()
+}
+
+#[cfg(target_os = "macos")]
+mod platform {
+    unsafe extern "C" {
+        fn sysctlbyname(
+            name: *const std::ffi::c_char,
+            oldp: *mut std::ffi::c_void,
+            oldlen: *mut usize,
+            newp: *mut std::ffi::c_void,
+            newlen: usize,
+        ) -> i32;
+    }
+
+    fn sysctl_u32(name: &std::ffi::CStr) -> Option<u32> {
+        let mut value: u32 = 0;
+        let mut len = std::mem::size_of::<u32>();
+        let ok = unsafe {
+            sysctlbyname(
+                name.as_ptr(),
+                &mut value as *mut u32 as *mut std::ffi::c_void,
+                &mut len,
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+        (ok == 0 && len == std::mem::size_of::<u32>()).then_some(value)
+    }
+
+    pub fn performance_cores() -> Option<usize> {
+        let fastest = sysctl_u32(c"hw.perflevel0.logicalcpu").filter(|n| *n > 0)?;
+        let total = sysctl_u32(c"hw.logicalcpu").unwrap_or(0);
+        (total == 0 || fastest < total).then_some(fastest as usize)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+mod platform {
+    pub fn performance_cores() -> Option<usize> {
+        None
+    }
+}
+
+fn pool_threads() -> usize {
+    let available = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
+
+    if let Some(requested) = std::env::var("RUST_GEAR_GLOB_THREADS")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|n| *n > 0)
+    {
+        return requested;
+    }
+
+    match WALK_WIDTH {
+        WalkWidth::Full => available,
+        WalkWidth::FastestCoreClass => {
+            performance_cores().map_or(available, |cores| cores.clamp(1, available))
+        }
+    }
+}
+
+fn pool() -> &'static rayon::ThreadPool {
+    static POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
+    POOL.get_or_init(|| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(pool_threads())
+            .thread_name(|i| format!("rust-gear-glob-{i}"))
+            .build()
+            .expect("failed to build glob thread pool")
+    })
+}
 
 #[napi(object)]
 #[derive(Clone)]
@@ -123,8 +212,6 @@ struct WalkContext {
     results: Mutex<Vec<String>>,
 }
 
-/// One `.gitignore` matcher; nodes chain up to matchers from ancestor
-/// directories so a deeper file's rules take precedence.
 struct GitignoreNode {
     matcher: Gitignore,
     parent: Option<Arc<GitignoreNode>>,
@@ -141,12 +228,10 @@ fn is_gitignored(mut node: Option<&Arc<GitignoreNode>>, path: &Path, is_dir: boo
     false
 }
 
-/// Recursively walk `dir`, spawning subdirectories onto rayon's global pool.
-/// Gitignore rules only apply once a `.git` marker has been seen at or below
-/// the walk root (`in_git_repo`), mirroring the ignore crate's require_git.
 fn walk_dir<'a>(
     ctx: &'a WalkContext,
     dir: PathBuf,
+    mut rel: PathBuf,
     parent_gitignore: Option<Arc<GitignoreNode>>,
     mut in_git_repo: bool,
     scope: &rayon::Scope<'a>,
@@ -156,7 +241,7 @@ fn walk_dir<'a>(
         Err(_) => return,
     };
 
-    let mut entries: Vec<(std::fs::DirEntry, std::fs::FileType)> = Vec::new();
+    let mut entries: Vec<(std::ffi::OsString, std::fs::FileType)> = Vec::new();
     let mut has_gitignore = false;
 
     for entry in read_dir.flatten() {
@@ -178,11 +263,11 @@ fn walk_dir<'a>(
                 continue;
             }
         }
-        entries.push((entry, file_type));
+        entries.push((name, file_type));
     }
 
     let gitignore = if has_gitignore {
-        let mut builder = GitignoreBuilder::new(&dir);
+        let mut builder = GitignoreBuilder::new(&rel);
         builder.add(dir.join(".gitignore"));
         match builder.build() {
             Ok(matcher) => Some(Arc::new(GitignoreNode {
@@ -197,32 +282,38 @@ fn walk_dir<'a>(
 
     let mut matched: Vec<String> = Vec::new();
 
-    for (entry, file_type) in entries {
-        let path = entry.path();
+    for (name, file_type) in entries {
         let is_dir = file_type.is_dir();
+        rel.push(&name);
 
-        if in_git_repo && is_gitignored(gitignore.as_ref(), &path, is_dir) {
+        if in_git_repo && is_gitignored(gitignore.as_ref(), &rel, is_dir) {
+            rel.pop();
             continue;
         }
 
-        let relative_path = path.strip_prefix(&ctx.cwd).unwrap_or(&path);
-        let rel_candidate = Candidate::new(relative_path);
+        let abs = ctx.has_absolute_pattern.then(|| dir.join(&name));
 
         if is_dir {
             if !ctx.exclude.is_empty()
-                && (ctx.exclude.is_match_candidate(&rel_candidate)
-                    || (ctx.has_absolute_pattern
-                        && ctx.exclude.is_match_candidate(&Candidate::new(&path))))
+                && (ctx.exclude.is_match_candidate(&Candidate::new(&rel))
+                    || abs
+                        .as_ref()
+                        .is_some_and(|p| ctx.exclude.is_match_candidate(&Candidate::new(p))))
             {
+                rel.pop();
                 continue;
             }
+            let child_dir = abs.unwrap_or_else(|| dir.join(&name));
+            let child_rel = rel.clone();
+            rel.pop();
             let gitignore = gitignore.clone();
-            scope.spawn(move |s| walk_dir(ctx, path, gitignore, in_git_repo, s));
+            scope.spawn(move |s| walk_dir(ctx, child_dir, child_rel, gitignore, in_git_repo, s));
             continue;
         }
 
-        let is_match = if ctx.has_absolute_pattern {
-            let abs_candidate = Candidate::new(&path);
+        let rel_candidate = Candidate::new(&rel);
+        let is_match = if let Some(abs) = &abs {
+            let abs_candidate = Candidate::new(abs);
             (ctx.include.is_match_candidate(&rel_candidate)
                 || ctx.include.is_match_candidate(&abs_candidate))
                 && !(ctx.exclude.is_match_candidate(&rel_candidate)
@@ -233,14 +324,15 @@ fn walk_dir<'a>(
         };
 
         if !is_match {
+            rel.pop();
             continue;
         }
 
-        let s = if ctx.has_absolute_pattern {
-            path.to_string_lossy().into_owned()
-        } else {
-            relative_path.to_string_lossy().into_owned()
+        let s = match &abs {
+            Some(abs) => abs.to_string_lossy().into_owned(),
+            None => rel.to_string_lossy().into_owned(),
         };
+        rel.pop();
 
         // Always return forward slashes, even on Windows
         #[cfg(windows)]
@@ -274,7 +366,14 @@ fn walk_and_filter(search_root: &Path, ctx: WalkContext, sort: bool) -> Result<V
         }
     }
 
-    rayon::scope(|s| walk_dir(&ctx, search_root.to_path_buf(), None, false, s));
+    let root_rel = search_root
+        .strip_prefix(&ctx.cwd)
+        .unwrap_or(Path::new(""))
+        .to_path_buf();
+
+    pool().install(|| {
+        rayon::scope(|s| walk_dir(&ctx, search_root.to_path_buf(), root_rel, None, false, s))
+    });
 
     let mut result = ctx
         .results
@@ -360,4 +459,36 @@ pub async fn glob(
     tokio::task::spawn_blocking(move || core(patterns, options))
         .await
         .map_err(|e| Error::new(Status::GenericFailure, e.to_string()))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn report_detected_topology() {
+        eprintln!(
+            "target_os={} available_parallelism={:?} performance_cores={:?} pool_threads={}",
+            std::env::consts::OS,
+            std::thread::available_parallelism().map(|n| n.get()),
+            performance_cores(),
+            pool_threads(),
+        );
+    }
+
+    #[test]
+    fn pool_threads_stays_within_available_parallelism() {
+        unsafe { std::env::remove_var("RUST_GEAR_GLOB_THREADS") };
+
+        let available = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+        let threads = pool_threads();
+
+        assert!(threads >= 1, "pool must have at least one thread");
+        assert!(
+            threads <= available,
+            "pool_threads() = {threads} exceeds available_parallelism() = {available}"
+        );
+    }
 }
