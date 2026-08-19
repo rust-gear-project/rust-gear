@@ -9,3 +9,4 @@ npm
 glob.darwin-arm64.node
 packages/glob/bench/fixture
 packages/glob/bench/fixture-git
+packages/glob/bench/*.node
