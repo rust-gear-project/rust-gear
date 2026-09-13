@@ -274,7 +274,7 @@ jobs:
               # the lockfile before running any script, so this must come
               # after pnpm build/test and run via node directly.
               # npm publish does not check the pnpm lockfile.
-              node ../../scripts/update-main-package.js
+              node ../../scripts/update-main-package.ts
               npm publish
               cd ../..
             else
