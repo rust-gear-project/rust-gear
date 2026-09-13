@@ -1,16 +1,19 @@
 {
   "name": "rust-gear-project",
   "private": true,
+  "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
     "build": "pnpm -r build",
     "packages": "pnpm -r packages",
     "readme": "pnpm -r readme",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.15.23",
     "ava": "^6.4.0",
-    "fast-glob": "^3.3.3"
+    "fast-glob": "^3.3.3",
+    "typescript": "^5"
   }
 }
