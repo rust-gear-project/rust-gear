@@ -49,9 +49,9 @@
   },
   "scripts": {
     "build": "napi build --platform --release",
-    "packages": "node ../../scripts/generate-platform-packages.js",
-    "readme": "node ../../scripts/generate-platform-readme.js",
-    "update:main": "node ../../scripts/update-main-package.js",
+    "packages": "node ../../scripts/generate-platform-packages.ts",
+    "readme": "node ../../scripts/generate-platform-readme.ts",
+    "update:main": "node ../../scripts/update-main-package.ts",
     "test": "ava",
     "bench": "node bench/bench.mjs"
   },
