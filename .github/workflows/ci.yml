@@ -5,6 +5,9 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  # Called by publish.yml so a release runs this suite against the exact
+  # commit it is about to publish.
+  workflow_call:
 
 env:
   PACKAGES: "glob"
