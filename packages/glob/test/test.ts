@@ -182,3 +182,41 @@ test("gitignore: false ignores the ancestor chain too", (t) => {
   const files = globSync("sub/**/*", { cwd: root, sort: true, gitignore: false });
   t.deepEqual(files, ["sub/b.log"]);
 });
+
+test("absolute pattern narrows the walk root without changing results", (t) => {
+  const root = makeTree({
+    "sub/a.js": "",
+    "sub/b.log": "",
+    "other/c.js": "",
+    ".gitignore": "*.log\n",
+  });
+  fs.mkdirSync(path.join(root, ".git"));
+  const pattern = path.join(root, "sub/**/*");
+  const expected = [path.join(root, "sub/a.js")];
+  t.deepEqual(globSync(pattern, { cwd: root, sort: true }), expected);
+  t.deepEqual(
+    globSync(pattern, { cwd: path.join(root, "sub"), sort: true }),
+    expected
+  );
+});
+
+test("root-level absolute pattern still falls back to cwd", (t) => {
+  const root = makeTree({ "a.js": "", "deep/b.js": "" });
+  const files = globSync("/**/*.js", { cwd: root, sort: true });
+  t.deepEqual(files, [
+    path.join(root, "a.js"),
+    path.join(root, "deep/b.js"),
+  ]);
+});
+
+test("mixed absolute and relative patterns fall back to cwd", (t) => {
+  const root = makeTree({ "a.js": "", "sub/b.js": "" });
+  const files = globSync([path.join(root, "sub/**/*.js"), "*.js"], {
+    cwd: root,
+    sort: true,
+  });
+  t.deepEqual(files, [
+    path.join(root, "a.js"),
+    path.join(root, "sub/b.js"),
+  ]);
+});
