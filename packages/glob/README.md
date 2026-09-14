@@ -9,10 +9,10 @@ Measured against `fast-glob` on a synthetic tree of ~50k files
 
 | pattern (~50k file tree) | `globSync` | `fast-glob` sync | `fast-glob` async |
 | :----------------------- | ---------: | ---------------: | ----------------: |
-| `**/*.js` (10k matches)  |      25 ms |            77 ms |             42 ms |
-| `**/*.{js,ts}` (18k)     |      26 ms |            80 ms |             42 ms |
-| `**/*` + exclude (37.8k) |      29 ms |            82 ms |             43 ms |
-| `mod1/**/*.rs` (400)     |     1.3 ms |           3.7 ms |            1.9 ms |
+| `**/*.js` (10k matches)  |      26 ms |            74 ms |             41 ms |
+| `**/*.{js,ts}` (18k)     |      27 ms |            78 ms |             40 ms |
+| `**/*` + exclude (37.8k) |      30 ms |            78 ms |             41 ms |
+| `mod1/**/*.rs` (400)     |     1.4 ms |           3.4 ms |            1.8 ms |
 
 - **~3x faster** than the synchronous APIs of `fast-glob` and `glob`.
   The directory walk is parallelized on a Rust thread pool, so `globSync`
@@ -89,6 +89,10 @@ const files = rs.globSync("**/*.rs", {
 > Absolute patterns → absolute paths  
 > Relative patterns → paths relative to `cwd`
 
+> **Absolute patterns are resolved inside `cwd`.** Pass `cwd` whenever the
+> pattern points outside the current working directory; a pattern that
+> resolves elsewhere throws rather than returning an empty array.
+
 ## Options
 
 | Option    | Type     | Default         | Description                                          |
@@ -102,6 +106,25 @@ const files = rs.globSync("**/*.rs", {
 > **Note:** Set `gitignore: false` for results that depend only on the
 > patterns and the filesystem, matching the behavior of `fast-glob`,
 > which never reads `.gitignore`.
+
+### What `gitignore` reads
+
+The enclosing repository is found by walking up from the directory the search
+starts in, and every `.gitignore` between that repository root and the search
+root is applied. The result therefore does not depend on how deep `cwd` sits,
+nor on how much of the path the pattern pins down:
+
+```js
+// all three honour the repository's ignore rules, and agree
+rs.globSync("**/*.js", { cwd: repo });
+rs.globSync("sub/**/*.js", { cwd: repo });
+rs.globSync("**/*.js", { cwd: `${repo}/sub` });
+```
+
+The one thing not tested against those rules is the search root itself. A
+search that starts inside an ignored directory still returns what it finds
+there, so pointing `cwd` at `dist` or `node_modules` works as asked. Use
+`gitignore: false` when you want the rules out of the way entirely.
 
 ## License
 
