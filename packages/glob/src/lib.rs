@@ -135,6 +135,73 @@ fn build_globset(patterns: &[String]) -> Result<GlobSet> {
         .map_err(|e| Error::new(Status::InvalidArg, e.to_string()))
 }
 
+fn static_prefix(pattern: &str) -> &str {
+    let glob_chars = ['*', '?', '[', '{'];
+    match pattern.find(|c| glob_chars.contains(&c)) {
+        Some(idx) => {
+            let prefix = &pattern[..idx];
+            if let Some(last_sep) = prefix.rfind(['/', '\\']) {
+                &prefix[..last_sep]
+            } else {
+                ""
+            }
+        }
+        None => {
+            if let Some(last_sep) = pattern.rfind(['/', '\\']) {
+                &pattern[..last_sep]
+            } else {
+                ""
+            }
+        }
+    }
+}
+
+fn enclosing_repo(start: &Path) -> bool {
+    let mut dir = Some(start);
+    while let Some(current) = dir {
+        if current.join(".git").exists() || current.join(".jj").exists() {
+            return true;
+        }
+        dir = current.parent();
+    }
+    false
+}
+
+fn reject_patterns_outside_cwd(cwd: &Path, patterns: &[String]) -> Result<()> {
+    let mut cwd_real: Option<PathBuf> = None;
+
+    for pattern in patterns {
+        if !Path::new(pattern).is_absolute() {
+            continue;
+        }
+        let prefix = static_prefix(pattern);
+        if prefix.is_empty() {
+            continue;
+        }
+        let Ok(prefix_real) = std::fs::canonicalize(prefix) else {
+            continue;
+        };
+        let cwd_real = cwd_real.get_or_insert_with(|| {
+            std::fs::canonicalize(cwd).unwrap_or_else(|_| cwd.to_path_buf())
+        });
+
+        if !prefix_real.starts_with(&*cwd_real) {
+            return Err(Error::new(
+                Status::InvalidArg,
+                format!(
+                    "Absolute pattern '{}' resolves to '{}', which is outside cwd '{}'. \
+                     Pass the `cwd` option pointing at the directory you want to search.",
+                    pattern,
+                    prefix_real.display(),
+                    cwd_real.display()
+                ),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 /// Extract the common static base directory from a set of patterns
 fn determine_base_path(cwd: &Path, patterns: &[String]) -> PathBuf {
     if patterns.is_empty() {
@@ -142,7 +209,6 @@ fn determine_base_path(cwd: &Path, patterns: &[String]) -> PathBuf {
     }
 
     let mut common_base: Option<PathBuf> = None;
-    let glob_chars = ['*', '?', '[', '{'];
 
     for pattern in patterns {
         // If an absolute path is included, scan from cwd (safety measure)
@@ -150,23 +216,7 @@ fn determine_base_path(cwd: &Path, patterns: &[String]) -> PathBuf {
             return cwd.to_path_buf();
         }
 
-        let static_part = match pattern.find(|c| glob_chars.contains(&c)) {
-            Some(idx) => {
-                let prefix = &pattern[..idx];
-                if let Some(last_sep) = prefix.rfind(['/', '\\']) {
-                    &prefix[..last_sep]
-                } else {
-                    ""
-                }
-            }
-            None => {
-                if let Some(last_sep) = pattern.rfind(['/', '\\']) {
-                    &pattern[..last_sep]
-                } else {
-                    ""
-                }
-            }
-        };
+        let static_part = static_prefix(pattern);
 
         if static_part.is_empty() {
             return cwd.to_path_buf();
@@ -371,8 +421,19 @@ fn walk_and_filter(search_root: &Path, ctx: WalkContext, sort: bool) -> Result<V
         .unwrap_or(Path::new(""))
         .to_path_buf();
 
+    let in_git_repo = ctx.respect_gitignore && enclosing_repo(search_root);
+
     pool().install(|| {
-        rayon::scope(|s| walk_dir(&ctx, search_root.to_path_buf(), root_rel, None, false, s))
+        rayon::scope(|s| {
+            walk_dir(
+                &ctx,
+                search_root.to_path_buf(),
+                root_rel,
+                None,
+                in_git_repo,
+                s,
+            )
+        })
     });
 
     let mut result = ctx
@@ -423,6 +484,7 @@ fn core(
     }
 
     let cwd = resolve_cwd(&options.cwd)?;
+    reject_patterns_outside_cwd(&cwd, &pattern_list)?;
     let search_root = determine_base_path(&cwd, &pattern_list);
     let has_absolute = pattern_list.iter().any(|p| Path::new(p).is_absolute());
 
