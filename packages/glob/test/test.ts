@@ -4,6 +4,9 @@ import fs from "fs";
 import os from "os";
 import { globSync, glob } from "../index.js";
 
+// globSync always returns forward slashes, on every platform.
+const slash = (p: string): string => p.replace(/\\/g, "/");
+
 function makeTree(files: Record<string, string>): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "glob-test-"));
   for (const [rel, content] of Object.entries(files)) {
@@ -165,7 +168,7 @@ test("absolute pattern inside cwd still resolves through symlinked tmp", (t) => 
     cwd: root,
     sort: true,
   });
-  t.deepEqual(files, [path.join(root, "src/a.js")]);
+  t.deepEqual(files, [slash(path.join(root, "src/a.js"))]);
 });
 
 test("ancestor gitignore applies regardless of pattern narrowing", (t) => {
@@ -213,7 +216,7 @@ test("absolute pattern narrows the walk root without changing results", (t) => {
   });
   fs.mkdirSync(path.join(root, ".git"));
   const pattern = path.join(root, "sub/**/*");
-  const expected = [path.join(root, "sub/a.js")];
+  const expected = [slash(path.join(root, "sub/a.js"))];
   t.deepEqual(globSync(pattern, { cwd: root, sort: true }), expected);
   t.deepEqual(
     globSync(pattern, { cwd: path.join(root, "sub"), sort: true }),
@@ -221,12 +224,15 @@ test("absolute pattern narrows the walk root without changing results", (t) => {
   );
 });
 
-test("root-level absolute pattern still falls back to cwd", (t) => {
+test("a root-level absolute pattern falls back to cwd", (t) => {
   const root = makeTree({ "a.js": "", "deep/b.js": "" });
-  const files = globSync("/**/*.js", { cwd: root, sort: true });
-  t.deepEqual(files, [
-    path.join(root, "a.js"),
-    path.join(root, "deep/b.js"),
+  const rooted =
+    process.platform === "win32"
+      ? `${slash(path.parse(root).root)}**/*.js`
+      : "/**/*.js";
+  t.deepEqual(globSync(rooted, { cwd: root, sort: true }), [
+    slash(path.join(root, "a.js")),
+    slash(path.join(root, "deep/b.js")),
   ]);
 });
 
@@ -237,7 +243,7 @@ test("mixed absolute and relative patterns fall back to cwd", (t) => {
     sort: true,
   });
   t.deepEqual(files, [
-    path.join(root, "a.js"),
-    path.join(root, "sub/b.js"),
+    slash(path.join(root, "a.js")),
+    slash(path.join(root, "sub/b.js")),
   ]);
 });
