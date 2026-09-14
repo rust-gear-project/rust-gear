@@ -156,15 +156,15 @@ fn static_prefix(pattern: &str) -> &str {
     }
 }
 
-fn enclosing_repo(start: &Path) -> bool {
-    let mut dir = Some(start);
+fn gitignore_base(search_root: &Path) -> (PathBuf, bool) {
+    let mut dir = Some(search_root);
     while let Some(current) = dir {
         if current.join(".git").exists() || current.join(".jj").exists() {
-            return true;
+            return (current.to_path_buf(), true);
         }
         dir = current.parent();
     }
-    false
+    (search_root.to_path_buf(), false)
 }
 
 fn reject_patterns_outside_cwd(cwd: &Path, patterns: &[String]) -> Result<()> {
@@ -267,6 +267,36 @@ struct GitignoreNode {
     parent: Option<Arc<GitignoreNode>>,
 }
 
+fn load_gitignore(
+    dir: &Path,
+    rel: &Path,
+    parent: Option<Arc<GitignoreNode>>,
+) -> Option<Arc<GitignoreNode>> {
+    let mut builder = GitignoreBuilder::new(rel);
+    builder.add(dir.join(".gitignore"));
+    match builder.build() {
+        Ok(matcher) => Some(Arc::new(GitignoreNode { matcher, parent })),
+        Err(_) => parent,
+    }
+}
+
+fn ancestor_gitignores(base: &Path, search_root: &Path) -> Option<Arc<GitignoreNode>> {
+    let relative = search_root.strip_prefix(base).ok()?;
+    let mut chain: Option<Arc<GitignoreNode>> = None;
+    let mut dir = base.to_path_buf();
+    let mut rel = PathBuf::new();
+
+    for component in relative.components() {
+        if dir.join(".gitignore").is_file() {
+            chain = load_gitignore(&dir, &rel, chain);
+        }
+        dir.push(component);
+        rel.push(component);
+    }
+
+    chain
+}
+
 fn is_gitignored(mut node: Option<&Arc<GitignoreNode>>, path: &Path, is_dir: bool) -> bool {
     while let Some(n) = node {
         match n.matcher.matched(path, is_dir) {
@@ -282,6 +312,7 @@ fn walk_dir<'a>(
     ctx: &'a WalkContext,
     dir: PathBuf,
     mut rel: PathBuf,
+    mut gitignore_rel: Option<PathBuf>,
     parent_gitignore: Option<Arc<GitignoreNode>>,
     mut in_git_repo: bool,
     scope: &rayon::Scope<'a>,
@@ -317,15 +348,11 @@ fn walk_dir<'a>(
     }
 
     let gitignore = if has_gitignore {
-        let mut builder = GitignoreBuilder::new(&rel);
-        builder.add(dir.join(".gitignore"));
-        match builder.build() {
-            Ok(matcher) => Some(Arc::new(GitignoreNode {
-                matcher,
-                parent: parent_gitignore,
-            })),
-            Err(_) => parent_gitignore,
-        }
+        load_gitignore(
+            &dir,
+            gitignore_rel.as_deref().unwrap_or(rel.as_path()),
+            parent_gitignore,
+        )
     } else {
         parent_gitignore
     };
@@ -335,9 +362,21 @@ fn walk_dir<'a>(
     for (name, file_type) in entries {
         let is_dir = file_type.is_dir();
         rel.push(&name);
+        if let Some(gitignore_rel) = gitignore_rel.as_mut() {
+            gitignore_rel.push(&name);
+        }
 
-        if in_git_repo && is_gitignored(gitignore.as_ref(), &rel, is_dir) {
+        if in_git_repo
+            && is_gitignored(
+                gitignore.as_ref(),
+                gitignore_rel.as_deref().unwrap_or(rel.as_path()),
+                is_dir,
+            )
+        {
             rel.pop();
+            if let Some(gitignore_rel) = gitignore_rel.as_mut() {
+                gitignore_rel.pop();
+            }
             continue;
         }
 
@@ -351,13 +390,30 @@ fn walk_dir<'a>(
                         .is_some_and(|p| ctx.exclude.is_match_candidate(&Candidate::new(p))))
             {
                 rel.pop();
+                if let Some(gitignore_rel) = gitignore_rel.as_mut() {
+                    gitignore_rel.pop();
+                }
                 continue;
             }
             let child_dir = abs.unwrap_or_else(|| dir.join(&name));
             let child_rel = rel.clone();
+            let child_gitignore_rel = gitignore_rel.clone();
             rel.pop();
+            if let Some(gitignore_rel) = gitignore_rel.as_mut() {
+                gitignore_rel.pop();
+            }
             let gitignore = gitignore.clone();
-            scope.spawn(move |s| walk_dir(ctx, child_dir, child_rel, gitignore, in_git_repo, s));
+            scope.spawn(move |s| {
+                walk_dir(
+                    ctx,
+                    child_dir,
+                    child_rel,
+                    child_gitignore_rel,
+                    gitignore,
+                    in_git_repo,
+                    s,
+                )
+            });
             continue;
         }
 
@@ -375,6 +431,9 @@ fn walk_dir<'a>(
 
         if !is_match {
             rel.pop();
+            if let Some(gitignore_rel) = gitignore_rel.as_mut() {
+                gitignore_rel.pop();
+            }
             continue;
         }
 
@@ -383,6 +442,9 @@ fn walk_dir<'a>(
             None => rel.to_string_lossy().into_owned(),
         };
         rel.pop();
+        if let Some(gitignore_rel) = gitignore_rel.as_mut() {
+            gitignore_rel.pop();
+        }
 
         // Always return forward slashes, even on Windows
         #[cfg(windows)]
@@ -421,7 +483,21 @@ fn walk_and_filter(search_root: &Path, ctx: WalkContext, sort: bool) -> Result<V
         .unwrap_or(Path::new(""))
         .to_path_buf();
 
-    let in_git_repo = ctx.respect_gitignore && enclosing_repo(search_root);
+    let (gitignore_root, in_git_repo) = if ctx.respect_gitignore {
+        gitignore_base(search_root)
+    } else {
+        (search_root.to_path_buf(), false)
+    };
+
+    let ancestors = in_git_repo
+        .then(|| ancestor_gitignores(&gitignore_root, search_root))
+        .flatten();
+
+    let gitignore_rel = search_root
+        .strip_prefix(&gitignore_root)
+        .ok()
+        .filter(|relative| *relative != root_rel.as_path())
+        .map(Path::to_path_buf);
 
     pool().install(|| {
         rayon::scope(|s| {
@@ -429,7 +505,8 @@ fn walk_and_filter(search_root: &Path, ctx: WalkContext, sort: bool) -> Result<V
                 &ctx,
                 search_root.to_path_buf(),
                 root_rel,
-                None,
+                gitignore_rel,
+                ancestors,
                 in_git_repo,
                 s,
             )
