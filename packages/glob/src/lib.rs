@@ -208,14 +208,17 @@ fn determine_base_path(cwd: &Path, patterns: &[String]) -> PathBuf {
         return cwd.to_path_buf();
     }
 
+    let absolute = Path::new(&patterns[0]).is_absolute();
+    if patterns
+        .iter()
+        .any(|pattern| Path::new(pattern).is_absolute() != absolute)
+    {
+        return cwd.to_path_buf();
+    }
+
     let mut common_base: Option<PathBuf> = None;
 
     for pattern in patterns {
-        // If an absolute path is included, scan from cwd (safety measure)
-        if Path::new(pattern).is_absolute() {
-            return cwd.to_path_buf();
-        }
-
         let static_part = static_prefix(pattern);
 
         if static_part.is_empty() {
