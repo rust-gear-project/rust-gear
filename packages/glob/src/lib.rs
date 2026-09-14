@@ -3,7 +3,7 @@ use ignore::Match;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 #[allow(dead_code)]
@@ -137,7 +137,7 @@ fn build_globset(patterns: &[String]) -> Result<GlobSet> {
 
 fn static_prefix(pattern: &str) -> &str {
     let glob_chars = ['*', '?', '[', '{'];
-    match pattern.find(|c| glob_chars.contains(&c)) {
+    let prefix = match pattern.find(|c| glob_chars.contains(&c)) {
         Some(idx) => {
             let prefix = &pattern[..idx];
             if let Some(last_sep) = prefix.rfind(['/', '\\']) {
@@ -153,6 +153,15 @@ fn static_prefix(pattern: &str) -> &str {
                 ""
             }
         }
+    };
+
+    if Path::new(prefix)
+        .components()
+        .any(|component| matches!(component, Component::Normal(_)))
+    {
+        prefix
+    } else {
+        ""
     }
 }
 
@@ -606,6 +615,22 @@ pub async fn glob(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn a_drive_root_is_not_a_search_root() {
+        assert_eq!(static_prefix("C:/**/*.js"), "");
+        assert_eq!(static_prefix("//server/share/**/*.js"), "");
+        assert_eq!(static_prefix("C:/a/**/*.js"), "C:/a");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_filesystem_root_is_not_a_search_root() {
+        assert_eq!(static_prefix("/**/*.js"), "");
+        assert_eq!(static_prefix("/a/**/*.js"), "/a");
+        assert_eq!(static_prefix("a/**/*.js"), "a");
+    }
 
     #[test]
     fn report_detected_topology() {
