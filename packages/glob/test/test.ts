@@ -114,3 +114,35 @@ test("gitignored directory is not descended", (t) => {
   const files = globSync("**/*.js", { cwd: root, sort: true });
   t.deepEqual(files, ["src/a.js"]);
 });
+
+test("gitignore applies when the walk starts below the repo root", (t) => {
+  const root = makeTree({
+    "sub/keep.js": "",
+    "sub/ignored.js": "",
+    "sub/.gitignore": "ignored.js\n",
+  });
+  fs.mkdirSync(path.join(root, ".git"));
+  const sub = path.join(root, "sub");
+  t.deepEqual(globSync("**/*.js", { cwd: sub, sort: true }), ["keep.js"]);
+  t.deepEqual(globSync("sub/**/*.js", { cwd: root, sort: true }), [
+    "sub/keep.js",
+  ]);
+});
+
+test("absolute pattern outside cwd throws instead of returning empty", (t) => {
+  const outside = makeTree({ "a.js": "" });
+  const elsewhere = makeTree({ "b.js": "" });
+  const error = t.throws(() =>
+    globSync(path.join(outside, "**/*.js"), { cwd: elsewhere })
+  );
+  t.regex(String(error?.message), /outside cwd/);
+});
+
+test("absolute pattern inside cwd still resolves through symlinked tmp", (t) => {
+  const root = makeTree({ "src/a.js": "", "src/b.ts": "" });
+  const files = globSync(path.join(root, "src/**/*.js"), {
+    cwd: root,
+    sort: true,
+  });
+  t.deepEqual(files, [path.join(root, "src/a.js")]);
+});
