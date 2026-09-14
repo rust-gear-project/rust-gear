@@ -146,3 +146,39 @@ test("absolute pattern inside cwd still resolves through symlinked tmp", (t) => 
   });
   t.deepEqual(files, [path.join(root, "src/a.js")]);
 });
+
+test("ancestor gitignore applies regardless of pattern narrowing", (t) => {
+  const root = makeTree({
+    "sub/a.js": "",
+    "sub/b.log": "",
+    ".gitignore": "*.log\n",
+  });
+  fs.mkdirSync(path.join(root, ".git"));
+  t.deepEqual(globSync("**/*", { cwd: root, sort: true }), ["sub/a.js"]);
+  t.deepEqual(globSync("sub/**/*", { cwd: root, sort: true }), ["sub/a.js"]);
+  t.deepEqual(globSync("**/*", { cwd: path.join(root, "sub"), sort: true }), [
+    "a.js",
+  ]);
+});
+
+test("ancestor re-include still wins over a higher ignore", (t) => {
+  const root = makeTree({
+    "sub/deep/keep.log": "",
+    "sub/deep/drop.log": "",
+    ".gitignore": "*.log\n",
+    "sub/.gitignore": "!keep.log\n",
+  });
+  fs.mkdirSync(path.join(root, ".git"));
+  const files = globSync("**/*", {
+    cwd: path.join(root, "sub/deep"),
+    sort: true,
+  });
+  t.deepEqual(files, ["keep.log"]);
+});
+
+test("gitignore: false ignores the ancestor chain too", (t) => {
+  const root = makeTree({ "sub/b.log": "", ".gitignore": "*.log\n" });
+  fs.mkdirSync(path.join(root, ".git"));
+  const files = globSync("sub/**/*", { cwd: root, sort: true, gitignore: false });
+  t.deepEqual(files, ["sub/b.log"]);
+});
