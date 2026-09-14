@@ -49,8 +49,20 @@ jobs:
           done
           echo "should_publish=$should" >> "$GITHUB_OUTPUT"
 
-  build:
+  # The OS matrix has to be green for this exact commit before anything
+  # reaches npm. ci.yml does not run on tag pushes, and a tag push otherwise
+  # publishes without ever looking at the result of the branch push that did
+  # run it: 1.2.0 shipped from a commit whose windows-latest job was failing,
+  # and npm refuses to republish a version, so the fix had to become 1.2.1.
+  ci:
     needs: check
+    if: needs.check.outputs.should_publish == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: [check, ci]
     if: needs.check.outputs.should_publish == 'true'
     strategy:
       matrix:
