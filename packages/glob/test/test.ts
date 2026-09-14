@@ -14,6 +14,27 @@ function makeTree(files: Record<string, string>): string {
   return root;
 }
 
+test("concurrent walks keep worker-local results isolated", async (t) => {
+  const files = Object.fromEntries(
+    Array.from({ length: 128 }, (_, i) => [`sub${i}/file.js`, ""])
+  );
+  const root = makeTree(files);
+  t.teardown(() => fs.rmSync(root, { recursive: true, force: true }));
+  const expected = Object.keys(files).sort();
+  const results = await Promise.all(
+    Array.from({ length: 24 }, (_, i) =>
+      glob(i % 2 === 0 ? "**/*.js" : "**/*.missing", {
+        cwd: root,
+        sort: true,
+      })
+    )
+  );
+  results.forEach((result, i) =>
+    t.deepEqual(result, i % 2 === 0 ? expected : [])
+  );
+  t.deepEqual(globSync("**/*.js", { cwd: root, sort: true }), expected);
+});
+
 test("async glob", async (t) => {
   const files = await glob(path.join(process.cwd(), "src/**/*.rs"));
   t.true(Array.isArray(files));
